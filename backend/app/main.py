@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 
 import structlog
 from fastapi import FastAPI
+from fastapi.routing import APIRoute
 
 from app.core import health
 from app.core.config import settings
@@ -11,8 +12,14 @@ from app.core.errors import register_error_handlers
 from app.core.logging import configure_logging
 from app.core.middleware import RequestIdMiddleware
 from app.core.redis import redis_client
+from app.modules.identity import api as identity_api
 
 log = structlog.get_logger()
+
+
+def operation_id(route: APIRoute) -> str:
+    """operationId = имя функции-обработчика: из OpenAPI генерируются хуки useLogin, useMe и т.д."""
+    return route.name
 
 
 @asynccontextmanager
@@ -33,11 +40,13 @@ def create_app() -> FastAPI:
         docs_url="/api/docs",
         openapi_url="/api/openapi.json",
         redoc_url=None,
+        generate_unique_id_function=operation_id,
     )
     app.add_middleware(RequestIdMiddleware)
     register_error_handlers(app)
 
     app.include_router(health.router, prefix="/api")
+    app.include_router(identity_api.router, prefix="/api")
     return app
 
 

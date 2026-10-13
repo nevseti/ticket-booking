@@ -48,12 +48,15 @@ async function toApiError(resp: Response): Promise<ApiError> {
   return new ApiError({ title: resp.statusText || 'Ошибка сети', status: resp.status, code: 'HTTP_ERROR' })
 }
 
-export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
+/**
+ * Мутатор для сгенерированного orval клиента: url уже полный (`/api/...`, как в OpenAPI).
+ */
+export async function customFetch<T>(url: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers)
   if (init.body !== undefined && !headers.has('content-type')) {
     headers.set('content-type', 'application/json')
   }
-  const resp = await fetch(`${API_PREFIX}${path}`, { credentials: 'include', ...init, headers })
+  const resp = await fetch(url, { credentials: 'include', ...init, headers })
   if (!resp.ok) {
     throw await toApiError(resp)
   }
@@ -62,3 +65,14 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
   }
   return (await resp.json()) as T
 }
+
+/** Ручной запрос к API по пути без префикса: apiFetch('/health'). */
+export function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
+  return customFetch<T>(`${API_PREFIX}${path}`, init)
+}
+
+/** Тип ошибки для хуков orval: любая ошибка API — ApiError с телом Problem Details. */
+export type ErrorType<E> = ApiError & { problem: E }
+
+/** Тело запроса для мутатора orval передаётся как есть. */
+export type BodyType<B> = B
