@@ -1,0 +1,51 @@
+# Локальная разработка: инфраструктура в контейнерах, API и фронтенд — на хосте
+# (быстрая перезагрузка кода). Запуск: docker compose up -d
+name: ticket-booking-dev
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: tickets
+      POSTGRES_PASSWORD: tickets
+      POSTGRES_DB: tickets
+    # 5433 на хосте: на машине разработчика может стоять свой PostgreSQL на 5432.
+    ports: ["${POSTGRES_HOST_PORT:-5433}:5432"]
+    volumes:
+      # В образах PostgreSQL 18+ данные лежат в /var/lib/postgresql/<версия>/docker,
+      # поэтому том монтируется на уровень выше.
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tickets -d tickets"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:8-alpine
+    ports: ["6379:6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  rabbitmq:
+    image: rabbitmq:4-management-alpine
+    ports:
+      - "5672:5672"
+      - "15672:15672" # management UI: http://localhost:15672 (guest/guest)
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "1025:1025" # SMTP
+      - "8025:8025" # web UI: http://localhost:8025
+
+volumes:
+  pgdata:

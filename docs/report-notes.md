@@ -10,3 +10,28 @@
 - Скрипт первичной настройки VPS: `deploy/scripts/bootstrap-vps.sh`
   (Docker, пользователь `deploy`, ufw 22/80/443, swap).
 - Домен: бесплатный поддомен DuckDNS (обоснование: TLS → HTTP/2 → SSE без лимита соединений).
+
+## Этап 1. Ходячий скелет
+
+- Бэкенд: FastAPI (фабрика `create_app`), SQLAlchemy 2 async + asyncpg, Alembic, pydantic-settings,
+  structlog (JSON-логи на проде), Problem Details (RFC 9457) для всех ошибок,
+  `X-Request-ID` проходит через все логи запроса.
+- `UnitOfWork`: одна сессия = одна транзакция, фиксация только явная — ответ уходит после COMMIT.
+- Пять модулей-заготовок, у каждого `facade.py`. **Архитектурный тест** (AST-анализ импортов)
+  проверяет: из чужого модуля импортируются только `facade`/`events`, направление зависимостей
+  `identity ← catalog ← booking ← orders`, ядро не зависит от модулей. Проверено негативным
+  сценарием: «плохой» импорт валит CI.
+- Схемы PostgreSQL на модуль создаются первой миграцией.
+- Фронтенд: Vite + React 19 + TS, TanStack Query, React Router, Mantine; dev-прокси `/api`.
+- Docker: один образ бэкенда на три роли (api/worker/migrate), образ web = SPA + nginx.
+- nginx сам выбирает HTTP/HTTPS по наличию сертификата; HTTPS-режим проверен локально
+  с самоподписанным сертификатом: редирект 80→443, HTTP/2, HSTS.
+- Прод-стек целиком поднят локально: migrate → api (healthy) → worker; `/api/ready` проверяет
+  PostgreSQL и Redis.
+- CI: ruff, тесты на реальном PostgreSQL 18 и Redis (service containers), oxlint, сборка фронтенда.
+  CD: после зелёного CI на main — образы в GHCR, деплой по SSH.
+- Нюанс окружения: на машине разработчика стоит свой PostgreSQL на 5432, поэтому dev-контейнер
+  проброшен на 5433.
+
+Скриншоты для отчёта (сделать после первого деплоя): успешный прогон Actions, `/api/docs`,
+главная страница на домене.
