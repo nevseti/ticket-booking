@@ -1,0 +1,8 @@
+# Все текстовые файлы в репозитории храним с LF: shell-скрипты и конфиги
+# попадают в Linux-контейнеры и на VPS, CRLF там ломает запуск.
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.ico binary
+*.woff2 binary
