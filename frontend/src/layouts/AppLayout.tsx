@@ -4,6 +4,7 @@ import { Link, NavLink, Outlet } from 'react-router'
 
 import { useHealth } from '../api/generated/system/system'
 import { UserMenu } from '../features/auth/UserMenu'
+import { useCurrentUser } from '../features/auth/useCurrentUser'
 
 function ApiStatus() {
   const { data, isError } = useHealth({ query: { refetchInterval: 30_000, retry: false } })
@@ -17,6 +18,7 @@ function ApiStatus() {
 }
 
 export function AppLayout() {
+  const { isAdmin } = useCurrentUser()
   return (
     <AppShell header={{ height: 60 }} footer={{ height: 36 }} padding="md">
       <AppShell.Header>
@@ -32,6 +34,11 @@ export function AppLayout() {
               <Anchor component={NavLink} to="/" size="sm">
                 Афиша
               </Anchor>
+              {isAdmin && (
+                <Anchor component={NavLink} to="/admin/events" size="sm">
+                  Админка
+                </Anchor>
+              )}
               <UserMenu />
             </Group>
           </Group>

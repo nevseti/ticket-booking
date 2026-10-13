@@ -29,6 +29,9 @@ docker compose up -d                      # PostgreSQL (5433), Redis, RabbitMQ, 
 cd backend
 uv sync
 uv run alembic upgrade head
+uv run python -m app.modules.catalog.cli seed-venue    # площадка: 2784 места
+uv run python -m app.modules.catalog.cli seed-demo     # 6 демо-мероприятий
+uv run python -m app.modules.identity.cli create-admin --email admin@example.com
 uv run uvicorn app.main:app --reload      # http://localhost:8000/api/docs
 
 cd frontend

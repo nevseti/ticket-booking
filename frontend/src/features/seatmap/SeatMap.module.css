@@ -1,0 +1,77 @@
+.wrapper {
+  position: relative;
+  border: 1px solid var(--mantine-color-default-border);
+  border-radius: var(--mantine-radius-md);
+  background: light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-8));
+  overflow: hidden;
+  touch-action: none;
+}
+
+.svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  user-select: none;
+}
+
+.stage {
+  fill: light-dark(var(--mantine-color-gray-4), var(--mantine-color-dark-4));
+}
+
+.stageLabel {
+  fill: light-dark(var(--mantine-color-gray-7), var(--mantine-color-dark-1));
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 6px;
+  text-anchor: middle;
+  dominant-baseline: middle;
+}
+
+.section {
+  fill: light-dark(var(--mantine-color-white), var(--mantine-color-dark-7));
+  stroke: light-dark(var(--mantine-color-gray-3), var(--mantine-color-dark-5));
+  stroke-width: 1.5;
+}
+
+.sectionLabel {
+  fill: var(--mantine-color-dimmed);
+  font-size: 15px;
+  font-weight: 600;
+  text-anchor: middle;
+  dominant-baseline: middle;
+  pointer-events: none;
+}
+
+.seat {
+  stroke: transparent;
+  stroke-width: 3;
+  transition: transform 80ms ease;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.seat:hover {
+  stroke: light-dark(var(--mantine-color-dark-7), var(--mantine-color-white));
+  transform: scale(1.35);
+}
+
+.tooltip {
+  position: absolute;
+  z-index: 2;
+  pointer-events: none;
+  padding: 6px 10px;
+  border-radius: var(--mantine-radius-sm);
+  background: light-dark(var(--mantine-color-dark-7), var(--mantine-color-gray-0));
+  color: light-dark(var(--mantine-color-white), var(--mantine-color-dark-9));
+  font-size: var(--mantine-font-size-xs);
+  white-space: nowrap;
+  transform: translate(-50%, calc(-100% - 12px));
+  box-shadow: var(--mantine-shadow-md);
+}
+
+.controls {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 3;
+}
