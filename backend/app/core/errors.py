@@ -6,11 +6,47 @@ import structlog
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel, ConfigDict
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 log = structlog.get_logger()
 
 PROBLEM_JSON = "application/problem+json"
+
+
+class Problem(BaseModel):
+    """Тело ошибки (RFC 9457). `code` — машинный код для клиента."""
+
+    model_config = ConfigDict(extra="allow")
+
+    type: str = "about:blank"
+    title: str
+    status: int
+    code: str
+    detail: str | None = None
+    instance: str | None = None
+
+
+_STATUS_DESCRIPTIONS = {
+    401: "Требуется вход",
+    403: "Недостаточно прав",
+    404: "Не найдено",
+    409: "Конфликт",
+    422: "Ошибка валидации",
+    429: "Слишком много запросов",
+}
+
+
+def problem_responses(*statuses: int) -> dict[int | str, dict[str, Any]]:
+    """Описание ошибок для OpenAPI: `APIRouter(responses=problem_responses(401, 422))`."""
+    return {
+        status: {
+            "model": Problem,
+            "description": _STATUS_DESCRIPTIONS.get(status, "Ошибка"),
+            "content": {PROBLEM_JSON: {"schema": {"$ref": "#/components/schemas/Problem"}}},
+        }
+        for status in statuses
+    }
 
 
 class AppError(Exception):

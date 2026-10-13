@@ -2,10 +2,11 @@ import { Anchor, AppShell, Badge, Container, Group, Text, Title } from '@mantine
 import { IconTicket } from '@tabler/icons-react'
 import { Link, NavLink, Outlet } from 'react-router'
 
-import { useHealth } from '../api/system'
+import { useHealth } from '../api/generated/system/system'
+import { UserMenu } from '../features/auth/UserMenu'
 
 function ApiStatus() {
-  const { data, isError } = useHealth()
+  const { data, isError } = useHealth({ query: { refetchInterval: 30_000, retry: false } })
   if (isError) return <Badge color="red" variant="light">API недоступно</Badge>
   if (!data) return null
   return (
@@ -31,6 +32,7 @@ export function AppLayout() {
               <Anchor component={NavLink} to="/" size="sm">
                 Афиша
               </Anchor>
+              <UserMenu />
             </Group>
           </Group>
         </Container>

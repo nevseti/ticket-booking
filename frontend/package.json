@@ -8,10 +8,12 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint --deny-warnings",
     "typecheck": "tsc -b",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "gen:api": "orval --config orval.config.ts"
   },
   "dependencies": {
     "@mantine/core": "^9.7.2",
+    "@mantine/form": "^9.7.2",
     "@mantine/hooks": "^9.7.2",
     "@mantine/notifications": "^9.7.2",
     "@tabler/icons-react": "^3.49.0",
@@ -26,6 +28,7 @@
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.7",
     "@vitejs/plugin-react": "^6.1.1",
+    "orval": "^8.42.0",
     "oxlint": "^1.81.0",
     "postcss": "^8.5.30",
     "postcss-preset-mantine": "^1.18.0",
