@@ -40,3 +40,51 @@ ssh-copy-id -i ./gh-deploy.pub deploy@<IP>
 ```
 
 Приватную часть (`gh-deploy`) положи в секрет репозитория `DEPLOY_SSH_KEY`, файл удали.
+
+## 3. Настройка GitHub
+
+1. Создай репозиторий и запушь код (`git remote add origin …`, `git push -u origin main --all`).
+2. **Settings → Secrets and variables → Actions:**
+   - секрет `DEPLOY_SSH_KEY` — приватный ключ `gh-deploy` из раздела 2;
+   - переменная `DEPLOY_HOST` — домен или IP сервера (например, `tickets-<фамилия>.duckdns.org`);
+   - переменная `DEPLOY_USER` — `deploy` (можно не задавать, это значение по умолчанию).
+3. **Settings → Environments** — создай окружение `production` (по желанию — с ручным
+   подтверждением деплоя).
+
+Пока `DEPLOY_HOST` не задан, workflow `Deploy` только собирает и публикует образы в GHCR,
+а шаг выкладки пропускает.
+
+## 4. Первый деплой
+
+На сервере положи `/opt/ticket-booking/.env` по шаблону `deploy/.env.prod.example`
+(секреты — `openssl rand -hex 32`). Затем пуш в `main` → CI → Deploy:
+
+- образы `ticket-booking-api` и `ticket-booking-web` публикуются в GHCR с тегом-хэшем коммита;
+- на сервер копируются `docker-compose.yml` и скрипты;
+- `remote-deploy.sh` обновляет теги в `.env`, скачивает образы и перезапускает сервисы;
+- сервис `migrate` применяет миграции до старта `api` и `worker`.
+
+Пока сертификата нет, nginx работает по HTTP: `http://<домен>/api/health`.
+
+## 5. TLS-сертификат
+
+Один раз, после первого деплоя:
+
+```bash
+ssh deploy@<домен>
+cd /opt/ticket-booking && bash init-letsencrypt.sh
+```
+
+Скрипт выпускает сертификат Let's Encrypt (проверка HTTP-01 через nginx) и перезапускает
+nginx — при старте он находит сертификат и включает HTTPS + HTTP/2. Продление — контейнер
+`certbot` (раз в 12 ч), nginx перечитывает сертификаты каждые 6 ч.
+
+## Полезные команды на сервере
+
+```bash
+cd /opt/ticket-booking
+docker compose ps                     # состояние сервисов
+docker compose logs -f api worker     # логи
+docker compose exec postgres psql -U tickets tickets
+ssh -L 15672:localhost:15672 deploy@<домен>   # RabbitMQ UI на http://localhost:15672
+```

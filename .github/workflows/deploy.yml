@@ -1,0 +1,112 @@
+name: Deploy
+
+# Деплой запускается только после успешного CI на main (или вручную).
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    name: Build & push images
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.meta.outputs.tag }}
+      api_image: ${{ steps.meta.outputs.api_image }}
+      web_image: ${{ steps.meta.outputs.web_image }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - id: meta
+        name: Image names
+        run: |
+          owner="${GITHUB_REPOSITORY_OWNER,,}"   # GHCR требует нижний регистр
+          echo "tag=$(git rev-parse --short=12 HEAD)" >> "$GITHUB_OUTPUT"
+          echo "api_image=ghcr.io/${owner}/ticket-booking-api" >> "$GITHUB_OUTPUT"
+          echo "web_image=ghcr.io/${owner}/ticket-booking-web" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: API image
+        uses: docker/build-push-action@v6
+        with:
+          context: backend
+          push: true
+          build-args: APP_VERSION=${{ steps.meta.outputs.tag }}
+          tags: |
+            ${{ steps.meta.outputs.api_image }}:${{ steps.meta.outputs.tag }}
+            ${{ steps.meta.outputs.api_image }}:latest
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,mode=max,scope=api
+
+      - name: Web image (SPA + nginx)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deploy/nginx/Dockerfile
+          push: true
+          tags: |
+            ${{ steps.meta.outputs.web_image }}:${{ steps.meta.outputs.tag }}
+            ${{ steps.meta.outputs.web_image }}:latest
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,mode=max,scope=web
+
+  deploy:
+    name: Deploy to VPS
+    needs: build
+    # Пока сервер не настроен (не задана переменная репозитория DEPLOY_HOST), шаг пропускается.
+    if: vars.DEPLOY_HOST != ''
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          sparse-checkout: deploy
+
+      - name: SSH setup
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          HOST: ${{ vars.DEPLOY_HOST }}
+        run: |
+          install -m 700 -d ~/.ssh
+          echo "$SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H "$HOST" >> ~/.ssh/known_hosts
+
+      - name: Upload compose & scripts
+        env:
+          TARGET: ${{ vars.DEPLOY_USER || 'deploy' }}@${{ vars.DEPLOY_HOST }}
+        run: |
+          scp deploy/docker-compose.prod.yml "$TARGET:/opt/ticket-booking/docker-compose.yml"
+          scp deploy/scripts/remote-deploy.sh deploy/scripts/init-letsencrypt.sh "$TARGET:/opt/ticket-booking/"
+
+      - name: Deploy
+        env:
+          TARGET: ${{ vars.DEPLOY_USER || 'deploy' }}@${{ vars.DEPLOY_HOST }}
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          echo "$TOKEN" | ssh "$TARGET" "docker login ghcr.io -u $ACTOR --password-stdin"
+          ssh "$TARGET" "bash /opt/ticket-booking/remote-deploy.sh \
+            ${{ needs.build.outputs.api_image }} \
+            ${{ needs.build.outputs.web_image }} \
+            ${{ needs.build.outputs.tag }}"
