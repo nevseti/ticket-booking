@@ -12,6 +12,7 @@ from app.core.errors import register_error_handlers
 from app.core.logging import configure_logging
 from app.core.middleware import RequestIdMiddleware
 from app.core.redis import redis_client
+from app.modules.catalog import api as catalog_api
 from app.modules.identity import api as identity_api
 
 log = structlog.get_logger()
@@ -47,6 +48,8 @@ def create_app() -> FastAPI:
 
     app.include_router(health.router, prefix="/api")
     app.include_router(identity_api.router, prefix="/api")
+    app.include_router(catalog_api.router, prefix="/api")
+    app.include_router(catalog_api.admin_router, prefix="/api")
     return app
 
 

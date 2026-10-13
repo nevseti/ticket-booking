@@ -19,22 +19,28 @@ from app.modules.identity.repository import UserRepository
 from app.modules.identity.service import IdentityService, normalize_email
 
 
-async def create_admin(email: str, name: str, password: str) -> str:
+async def promote_existing(email: str) -> str | None:
+    """Повысить существующего пользователя до администратора; None — если такого нет."""
     async with UnitOfWork() as uow:
         existing = await UserRepository(uow.session).get_by_email(normalize_email(email))
-        if existing is not None:
-            await uow.session.execute(
-                update(User).where(User.id == existing.id).values(role=Role.ADMIN)
-            )
-            result = f"Пользователь {existing.email} повышен до администратора"
-        else:
-            user = await IdentityService(uow).register(
-                email=email, name=name, password=password, role=Role.ADMIN
-            )
-            result = f"Создан администратор {user.email}"
+        if existing is None:
+            return None
+        await uow.session.execute(
+            update(User).where(User.id == existing.id).values(role=Role.ADMIN)
+        )
         await uow.commit()
     await engine.dispose()
-    return result
+    return f"Пользователь {existing.email} повышен до администратора (нужно войти заново)"
+
+
+async def create_admin(email: str, name: str, password: str) -> str:
+    async with UnitOfWork() as uow:
+        user = await IdentityService(uow).register(
+            email=email, name=name, password=password, role=Role.ADMIN
+        )
+        await uow.commit()
+    await engine.dispose()
+    return f"Создан администратор {user.email}"
 
 
 def main() -> None:
@@ -46,6 +52,10 @@ def main() -> None:
     args = parser.parse_args()
 
     if args.command == "create-admin":
+        promoted = asyncio.run(promote_existing(args.email))
+        if promoted:
+            print(promoted)
+            return
         password = os.environ.get("ADMIN_PASSWORD") or getpass.getpass("Пароль: ")
         if len(password) < 8:
             parser.error("пароль должен быть не короче 8 символов")

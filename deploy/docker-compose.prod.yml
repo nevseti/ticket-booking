@@ -45,7 +45,8 @@ services:
 
   migrate:
     <<: *backend
-    command: ["alembic", "upgrade", "head"]
+    # Миграции + справочные данные площадки (идемпотентно).
+    command: ["sh", "-c", "alembic upgrade head && python -m app.modules.catalog.cli seed-venue"]
     restart: "no"
     depends_on:
       postgres: { condition: service_healthy }

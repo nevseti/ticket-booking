@@ -83,6 +83,8 @@ nginx — при старте он находит сертификат и вкл
 
 ```bash
 cd /opt/ticket-booking
+docker compose exec api python -m app.modules.identity.cli create-admin --email <email>
+docker compose exec api python -m app.modules.catalog.cli seed-demo   # демо-мероприятия
 docker compose ps                     # состояние сервисов
 docker compose logs -f api worker     # логи
 docker compose exec postgres psql -U tickets tickets

@@ -13,14 +13,18 @@
   },
   "dependencies": {
     "@mantine/core": "^9.7.2",
+    "@mantine/dates": "^9.7.2",
     "@mantine/form": "^9.7.2",
     "@mantine/hooks": "^9.7.2",
+    "@mantine/modals": "^9.7.2",
     "@mantine/notifications": "^9.7.2",
     "@tabler/icons-react": "^3.49.0",
     "@tanstack/react-query": "^5.104.2",
+    "dayjs": "^1.11.23",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
-    "react-router": "^8.4.0"
+    "react-router": "^8.4.0",
+    "react-zoom-pan-pinch": "^4.2.0"
   },
   "devDependencies": {
     "@tanstack/react-query-devtools": "^5.104.2",

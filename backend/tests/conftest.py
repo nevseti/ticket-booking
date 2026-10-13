@@ -19,10 +19,16 @@ from alembic import command  # noqa: E402
 from alembic.config import Config  # noqa: E402
 from httpx import ASGITransport, AsyncClient  # noqa: E402
 from sqlalchemy import make_url, text  # noqa: E402
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine  # noqa: E402
+from sqlalchemy.pool import NullPool  # noqa: E402
 
 from app.core.db import MODULE_SCHEMAS, engine  # noqa: E402
 from app.db_models import Base  # noqa: E402
 from app.main import app  # noqa: E402
+from app.modules.catalog.seed import seed_venue  # noqa: E402
+from app.modules.identity.models import Role  # noqa: E402
+from app.modules.identity.security import create_access_token  # noqa: E402
+from app.modules.identity.service import IdentityService  # noqa: E402
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 
@@ -71,12 +77,26 @@ def database() -> None:
     cfg = Config(str(BACKEND_DIR / "alembic.ini"))
     cfg.set_main_option("script_location", str(BACKEND_DIR / "migrations"))
     _run_in_thread(lambda: command.upgrade(cfg, "head"))
+    _run(_seed_reference_data)
+
+
+async def _seed_reference_data() -> None:
+    # Отдельный движок без пула: соединения не должны пережить этот цикл событий.
+    seed_engine = create_async_engine(TEST_DATABASE_URL, poolclass=NullPool)
+    async with AsyncSession(seed_engine) as session:
+        await seed_venue(session)
+        await session.commit()
+    await seed_engine.dispose()
 
 
 @pytest.fixture(autouse=True)
 async def clean_tables() -> AsyncIterator[None]:
-    """Перед каждым тестом — пустые таблицы (структура остаётся)."""
-    tables = [f'{t.schema}."{t.name}"' for t in Base.metadata.sorted_tables]
+    """Перед каждым тестом — пустые таблицы (структура и справочные данные остаются)."""
+    tables = [
+        f'{t.schema}."{t.name}"'
+        for t in Base.metadata.sorted_tables
+        if not t.info.get("reference_data")
+    ]
     if tables:
         async with engine.begin() as conn:
             await conn.execute(text(f"TRUNCATE {', '.join(tables)} RESTART IDENTITY CASCADE"))
@@ -88,3 +108,26 @@ async def client() -> AsyncIterator[AsyncClient]:
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         yield ac
+
+
+async def _make_user(role: Role, email: str) -> dict[str, str]:
+    from app.core.db import UnitOfWork
+
+    async with UnitOfWork() as uow:
+        user = await IdentityService(uow).register(
+            email=email, name=role.value, password="test-password", role=role
+        )
+        await uow.commit()
+    return {"Authorization": f"Bearer {create_access_token(user.id, user.role)}"}
+
+
+@pytest.fixture
+async def admin_headers() -> dict[str, str]:
+    """Заголовки администратора (Bearer-токен)."""
+    return await _make_user(Role.ADMIN, "admin@example.com")
+
+
+@pytest.fixture
+async def user_headers() -> dict[str, str]:
+    """Заголовки обычного пользователя."""
+    return await _make_user(Role.USER, "user@example.com")
