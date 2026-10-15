@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # Первичный выпуск TLS-сертификата Let's Encrypt. Запускать на сервере один раз,
 # когда nginx уже работает по HTTP (то есть после первого деплоя):
-#   cd /opt/ticket-booking && bash init-letsencrypt.sh
+#   cd ~/ticket-booking && bash init-letsencrypt.sh
 # Дальше сертификат продлевает контейнер certbot.
 set -euo pipefail
 
-cd /opt/ticket-booking
+cd ~/ticket-booking
 set -a
 # shellcheck disable=SC1091
 source .env

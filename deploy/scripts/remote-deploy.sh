@@ -5,7 +5,7 @@
 # Миграции выполняются сервисом migrate, от которого зависят api и worker.
 set -euo pipefail
 
-APP_DIR=/opt/ticket-booking
+APP_DIR="${HOME}/ticket-booking"
 API_IMAGE=$1
 WEB_IMAGE=$2
 TAG=$3

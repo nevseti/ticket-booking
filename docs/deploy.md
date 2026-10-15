@@ -56,7 +56,7 @@ ssh-copy-id -i ./gh-deploy.pub deploy@<IP>
 
 ## 4. Первый деплой
 
-На сервере положи `/opt/ticket-booking/.env` по шаблону `deploy/.env.prod.example`
+На сервере положи `~/ticket-booking/.env` по шаблону `deploy/.env.prod.example`
 (секреты — `openssl rand -hex 32`). Затем пуш в `main` → CI → Deploy:
 
 - образы `ticket-booking-api` и `ticket-booking-web` публикуются в GHCR с тегом-хэшем коммита;
@@ -72,7 +72,7 @@ ssh-copy-id -i ./gh-deploy.pub deploy@<IP>
 
 ```bash
 ssh deploy@<домен>
-cd /opt/ticket-booking && bash init-letsencrypt.sh
+cd ~/ticket-booking && bash init-letsencrypt.sh
 ```
 
 Скрипт выпускает сертификат Let's Encrypt (проверка HTTP-01 через nginx) и перезапускает
@@ -82,7 +82,7 @@ nginx — при старте он находит сертификат и вкл
 ## Полезные команды на сервере
 
 ```bash
-cd /opt/ticket-booking
+cd ~/ticket-booking
 docker compose exec api python -m app.modules.identity.cli create-admin --email <email>
 docker compose exec api python -m app.modules.catalog.cli seed-demo   # демо-мероприятия
 docker compose ps                     # состояние сервисов

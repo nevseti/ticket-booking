@@ -96,8 +96,9 @@ jobs:
         env:
           TARGET: ${{ vars.DEPLOY_USER || 'deploy' }}@${{ vars.DEPLOY_HOST }}
         run: |
-          scp deploy/docker-compose.prod.yml "$TARGET:/opt/ticket-booking/docker-compose.yml"
-          scp deploy/scripts/remote-deploy.sh deploy/scripts/init-letsencrypt.sh "$TARGET:/opt/ticket-booking/"
+          ssh "$TARGET" "mkdir -p ticket-booking"
+          scp deploy/docker-compose.prod.yml "$TARGET:ticket-booking/docker-compose.yml"
+          scp deploy/scripts/remote-deploy.sh deploy/scripts/init-letsencrypt.sh "$TARGET:ticket-booking/"
 
       - name: Deploy
         env:
@@ -106,7 +107,7 @@ jobs:
           ACTOR: ${{ github.actor }}
         run: |
           echo "$TOKEN" | ssh "$TARGET" "docker login ghcr.io -u $ACTOR --password-stdin"
-          ssh "$TARGET" "bash /opt/ticket-booking/remote-deploy.sh \
+          ssh "$TARGET" "bash ticket-booking/remote-deploy.sh \
             ${{ needs.build.outputs.api_image }} \
             ${{ needs.build.outputs.web_image }} \
             ${{ needs.build.outputs.tag }}"
