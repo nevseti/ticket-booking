@@ -9,13 +9,13 @@
 #   2. Создаёт пользователя deploy (в группе docker) и переносит ему SSH-ключи root.
 #   3. Включает ufw: открыты только 22, 80, 443.
 #   4. Добавляет swap 2 ГБ, если RAM меньше 3 ГБ.
-#   5. Создаёт каталог /opt/ticket-booking для docker-compose и .env.
+#   5. Создаёт каталог ~deploy/ticket-booking для docker-compose и .env.
 #
 # Вход по паролю НЕ отключается автоматически — сделай это вручную,
 # когда убедишься, что `ssh deploy@<IP>` пускает по ключу (см. docs/deploy.md).
 set -euo pipefail
 
-APP_DIR=/opt/ticket-booking
+APP_DIR=/home/deploy/ticket-booking
 DEPLOY_USER=deploy
 
 if [[ $EUID -ne 0 ]]; then

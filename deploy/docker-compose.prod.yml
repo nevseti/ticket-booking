@@ -1,5 +1,10 @@
-# Прод на VPS. Лежит на сервере как /opt/ticket-booking/docker-compose.yml рядом с .env
+# Прод на VPS. Лежит на сервере как ~/ticket-booking/docker-compose.yml рядом с .env
 # (шаблон — deploy/.env.prod.example). Обновляется автоматически из GitHub Actions.
+#
+# Конфигурация рассчитана на маленький VPS (1 vCPU, 1 ГБ RAM), где работают и другие сервисы:
+# у каждого контейнера жёсткий лимит памяти (mem_limit). Лимит — потолок, а не резерв:
+# фактически стек занимает ~350 МБ в простое (замер docker stats). Если контейнер упрётся в лимит, Docker перезапустит
+# только его, не затрагивая остальные процессы сервера.
 name: ticket-booking
 
 x-backend: &backend
@@ -12,7 +17,11 @@ x-backend: &backend
     DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
     REDIS_URL: redis://redis:6379/0
     RABBITMQ_URL: amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672/
+    # Пул соединений с БД на процесс: держим суммарно меньше max_connections PostgreSQL.
+    DB_POOL_SIZE: "5"
+    DB_MAX_OVERFLOW: "5"
   restart: unless-stopped
+  mem_limit: 192m
   logging: &logging
     driver: json-file
     options: { max-size: "10m", max-file: "5" }
@@ -28,6 +37,7 @@ services:
     volumes:
       - certbot-conf:/etc/letsencrypt:ro
       - certbot-www:/var/www/certbot:ro
+    mem_limit: 96m
     restart: unless-stopped
     logging: *logging
 
@@ -40,6 +50,7 @@ services:
     entrypoint: >-
       /bin/sh -c 'trap exit TERM;
       while :; do certbot renew --webroot -w /var/www/certbot --quiet; sleep 12h & wait $${!}; done'
+    mem_limit: 128m
     restart: unless-stopped
     logging: *logging
 
@@ -53,6 +64,9 @@ services:
 
   api:
     <<: *backend
+    # Один процесс uvicorn (WEB_CONCURRENCY=1 в .env): на 1 vCPU второй процесс почти
+    # ничего не даёт, а асинхронный FastAPI и так обслуживает сотни запросов одновременно.
+    mem_limit: 256m
     depends_on:
       migrate: { condition: service_completed_successfully }
       redis: { condition: service_healthy }
@@ -73,6 +87,21 @@ services:
 
   postgres:
     image: postgres:18-alpine
+    # Настройки под ~256 МБ: небольшой кэш страниц и умеренное число соединений
+    # (api + worker с пулами по 5+5 укладываются с запасом).
+    command:
+      - postgres
+      - -c
+      - shared_buffers=64MB
+      - -c
+      - effective_cache_size=192MB
+      - -c
+      - work_mem=2MB
+      - -c
+      - maintenance_work_mem=32MB
+      - -c
+      - max_connections=40
+    mem_limit: 256m
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -89,7 +118,10 @@ services:
 
   redis:
     image: redis:8-alpine
-    command: ["redis-server", "--appendonly", "yes"]
+    # Всё в Redis можно пересобрать (кэш схемы, счётчики лимитов), поэтому при нехватке
+    # памяти он вытесняет давно не использованные ключи, а не отказывает в записи.
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "48mb", "--maxmemory-policy", "allkeys-lru"]
+    mem_limit: 96m
     volumes:
       - redisdata:/data
     healthcheck:
@@ -105,10 +137,14 @@ services:
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
+      # Один планировщик Erlang и без активного ожидания: не жжём единственное ядро вхолостую.
+      RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: "+S 1:1 +sbwt none +sbwtdcpu none +sbwtdio none"
+    # RabbitMQ видит лимит контейнера и сам ограничивает себя (~60% от него).
+    mem_limit: 256m
     volumes:
       - rabbitdata:/var/lib/rabbitmq
     # Management UI наружу не публикуется. Доступ через SSH-туннель:
-    #   ssh -L 15672:localhost:15672 deploy@<host>  →  http://localhost:15672
+    #   ssh -L 15672:localhost:15672 <user>@<host>  →  http://localhost:15672
     ports:
       - "127.0.0.1:15672:15672"
     healthcheck:
