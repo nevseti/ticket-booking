@@ -55,7 +55,7 @@ export function AppLayout() {
         <Container size="lg" h="100%">
           <Group h="100%" justify="space-between">
             <Text size="xs" c="dimmed">
-              Курсовая · Архитектура клиент-серверных приложений
+              Учебный проект: мероприятия вымышленные, оплата — имитация
             </Text>
             <ApiStatus />
           </Group>

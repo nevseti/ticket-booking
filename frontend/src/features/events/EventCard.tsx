@@ -17,7 +17,7 @@ export function EventCard({ event }: { event: EventCardData }) {
       radius="md"
       style={{ overflow: 'hidden' }}
     >
-      <EventPoster kind={event.kind} posterUrl={event.poster_url} height={150} />
+      <EventPoster kind={event.kind} posterUrl={event.poster_url} height={150} seed={event.id} />
       <Stack gap={6} p="md">
         <Group justify="space-between" gap="xs">
           <Text size="xs" c="dimmed" tt="uppercase" fw={600}>

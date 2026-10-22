@@ -102,7 +102,7 @@ export function EventPage() {
       <Grid gap="lg">
         <Grid.Col span={{ base: 12, sm: 4 }}>
           <Paper radius="md" style={{ overflow: 'hidden' }}>
-            <EventPoster kind={event.kind} posterUrl={event.poster_url} height={220} />
+            <EventPoster kind={event.kind} posterUrl={event.poster_url} height={220} seed={event.id} />
           </Paper>
         </Grid.Col>
         <Grid.Col span={{ base: 12, sm: 8 }}>

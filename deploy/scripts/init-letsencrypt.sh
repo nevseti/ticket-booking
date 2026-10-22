@@ -12,13 +12,19 @@ source .env
 set +a
 
 : "${DOMAIN:?В .env не задан DOMAIN}"
-: "${LETSENCRYPT_EMAIL:?В .env не задан LETSENCRYPT_EMAIL}"
+
+# Email необязателен: на него Let's Encrypt шлёт предупреждения, если продление сломалось.
+if [[ -n "${LETSENCRYPT_EMAIL:-}" ]]; then
+  email_args=(--email "${LETSENCRYPT_EMAIL}" --no-eff-email)
+else
+  email_args=(--register-unsafely-without-email)
+fi
 
 docker compose run --rm --entrypoint certbot certbot certonly \
   --webroot -w /var/www/certbot \
   -d "${DOMAIN}" \
-  --email "${LETSENCRYPT_EMAIL}" \
-  --agree-tos --no-eff-email --non-interactive
+  "${email_args[@]}" \
+  --agree-tos --non-interactive
 
 # При старте nginx увидит сертификат и включит HTTPS-конфигурацию.
 docker compose restart nginx

@@ -7,7 +7,7 @@ from httpx import AsyncClient
 
 from app.core.db import UnitOfWork
 from app.modules.catalog import facade as catalog
-from app.modules.catalog.seed import seed_demo_events, seed_venue
+from app.modules.catalog.seed import DEMO_EVENTS, seed_demo_events, seed_venue
 from app.modules.catalog.venue_layout import build_arena
 
 ALL_PRICES = [
@@ -249,7 +249,7 @@ async def test_seed_demo_events_once() -> None:
         again = await seed_demo_events(uow.session, datetime.now(UTC))
         await uow.commit()
 
-    assert created == 6
+    assert created == len(DEMO_EVENTS)
     assert again == 0
 
 
