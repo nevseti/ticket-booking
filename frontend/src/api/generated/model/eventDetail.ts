@@ -22,6 +22,8 @@ export interface EventDetail {
   sale_status: SaleStatus;
   min_price_kopecks: number | null;
   poster_url: string | null;
+  poster_credit: string | null;
+  poster_source: string | null;
   description: string;
   prices: PriceOut[];
   venue: VenueInfo;

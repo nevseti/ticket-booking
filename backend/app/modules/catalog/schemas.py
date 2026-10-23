@@ -3,7 +3,7 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Self
 
-from pydantic import AwareDatetime, BaseModel, Field, HttpUrl, field_validator, model_validator
+from pydantic import AwareDatetime, BaseModel, Field, field_validator, model_validator
 
 from app.modules.catalog.models import EventKind, EventStatus
 from app.modules.catalog.venue_layout import HallConfig, SectionKind
@@ -103,7 +103,18 @@ class EventIn(BaseModel):
     sales_end_at: AwareDatetime | None = Field(
         default=None, description="По умолчанию — момент начала мероприятия"
     )
-    poster_url: HttpUrl | None = None
+    poster_url: str | None = Field(
+        default=None,
+        max_length=500,
+        pattern=r"^(https?://|/)\S+$",
+        description="Ссылка на картинку (http/https) или путь на сайте (/posters/...)",
+    )
+    poster_credit: str | None = Field(
+        default=None, max_length=300, description="Автор фото и лицензия"
+    )
+    poster_source: str | None = Field(
+        default=None, max_length=500, pattern=r"^https?://\S+$", description="Страница фото"
+    )
     prices: list[PriceIn] = Field(default_factory=list)
 
     @field_validator("title")
@@ -146,6 +157,8 @@ class EventCard(BaseModel):
     sale_status: SaleStatus
     min_price_kopecks: int | None
     poster_url: str | None
+    poster_credit: str | None
+    poster_source: str | None
 
 
 class VenueInfo(BaseModel):

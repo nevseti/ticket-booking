@@ -73,6 +73,8 @@ def _card_fields(event: Event, now: datetime) -> dict:
         "sale_status": sale_status(event, now),
         "min_price_kopecks": min(prices) if prices else None,
         "poster_url": event.poster_url,
+        "poster_credit": event.poster_credit,
+        "poster_source": event.poster_source,
     }
 
 
@@ -142,7 +144,9 @@ class CatalogService:
         event.starts_at = data.starts_at
         event.sales_start_at = data.sales_start_at
         event.sales_end_at = data.sales_end_at or data.starts_at
-        event.poster_url = str(data.poster_url) if data.poster_url else None
+        event.poster_url = data.poster_url
+        event.poster_credit = data.poster_credit
+        event.poster_source = data.poster_source
         event.prices = [
             EventPrice(price_category_id=p.category_id, price_kopecks=p.price_kopecks)
             for p in data.prices

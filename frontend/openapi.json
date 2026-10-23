@@ -2113,6 +2113,28 @@
             ],
             "title": "Poster Url"
           },
+          "poster_credit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Poster Credit"
+          },
+          "poster_source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Poster Source"
+          },
           "description": {
             "type": "string",
             "title": "Description"
@@ -2165,6 +2187,8 @@
           "sale_status",
           "min_price_kopecks",
           "poster_url",
+          "poster_credit",
+          "poster_source",
           "description",
           "prices",
           "venue",
@@ -2342,6 +2366,28 @@
               }
             ],
             "title": "Poster Url"
+          },
+          "poster_credit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Poster Credit"
+          },
+          "poster_source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Poster Source"
           }
         },
         "type": "object",
@@ -2355,7 +2401,9 @@
           "sales_end_at",
           "sale_status",
           "min_price_kopecks",
-          "poster_url"
+          "poster_url",
+          "poster_credit",
+          "poster_source"
         ],
         "title": "EventCard"
       },
@@ -2417,6 +2465,28 @@
             ],
             "title": "Poster Url"
           },
+          "poster_credit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Poster Credit"
+          },
+          "poster_source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Poster Source"
+          },
           "description": {
             "type": "string",
             "title": "Description"
@@ -2444,6 +2514,8 @@
           "sale_status",
           "min_price_kopecks",
           "poster_url",
+          "poster_credit",
+          "poster_source",
           "description",
           "prices",
           "venue"
@@ -2494,15 +2566,42 @@
             "anyOf": [
               {
                 "type": "string",
-                "maxLength": 2083,
-                "minLength": 1,
-                "format": "uri"
+                "maxLength": 500,
+                "pattern": "^(https?://|/)\\S+$"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Poster Url"
+            "title": "Poster Url",
+            "description": "Ссылка на картинку (http/https) или путь на сайте (/posters/...)"
+          },
+          "poster_credit": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 300
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Poster Credit",
+            "description": "Автор фото и лицензия"
+          },
+          "poster_source": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500,
+                "pattern": "^https?://\\S+$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Poster Source",
+            "description": "Страница фото"
           },
           "prices": {
             "items": {
