@@ -6,6 +6,7 @@ from typing import Self
 from pydantic import AwareDatetime, BaseModel, Field, HttpUrl, field_validator, model_validator
 
 from app.modules.catalog.models import EventKind, EventStatus
+from app.modules.catalog.venue_layout import HallConfig, SectionKind
 
 MAX_PRICE_KOPECKS = 10_000_000  # 100 000 ₽ за место — разумный потолок от опечаток
 
@@ -36,6 +37,10 @@ class SectionOut(BaseModel):
     path: str
     label_x: float
     label_y: float
+    kind: SectionKind
+    configs: list[HallConfig] = Field(description="Режимы зала, в которых сектор продаётся")
+    capacity: int
+    category_id: int | None = Field(description="Категория стоячей зоны (у сидячих — у мест)")
 
 
 class SeatOut(BaseModel):
@@ -48,15 +53,35 @@ class SeatOut(BaseModel):
     category_id: int
 
 
+class RinkOut(BaseModel):
+    x: float
+    y: float
+    width: float
+    height: float
+    radius: float
+
+
+class HallConfigOut(BaseModel):
+    id: HallConfig
+    name: str
+    capacity: int
+    category_ids: list[int] = Field(description="Ценовые категории, которые есть в этом режиме")
+
+
 class VenueLayout(BaseModel):
-    """Статичная схема площадки: одинакова для всех мероприятий, отлично кэшируется."""
+    """Статичная схема площадки: одинакова для всех мероприятий, отлично кэшируется.
+
+    Места стоячих зон в `seats` не входят — у них нет ряда и координат, только вместимость.
+    """
 
     name: str
     address: str
     width: int
     height: int
+    rink: RinkOut
     stage_path: str
     categories: list[CategoryOut]
+    hall_configs: list[HallConfigOut]
     sections: list[SectionOut]
     seats: list[SeatOut]
 
@@ -114,6 +139,7 @@ class EventCard(BaseModel):
     id: uuid.UUID
     title: str
     kind: EventKind
+    hall_config: HallConfig = Field(description="Режим зала: hockey или stage (сцена)")
     starts_at: datetime
     sales_start_at: datetime
     sales_end_at: datetime

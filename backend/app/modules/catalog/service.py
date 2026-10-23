@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 
 from app.core.db import UnitOfWork
 from app.core.errors import AppError, ConflictError, NotFoundError
-from app.modules.catalog.models import Event, EventPrice, EventStatus
+from app.modules.catalog.models import Event, EventKind, EventPrice, EventStatus
 from app.modules.catalog.reference import ReferenceData, get_reference
 from app.modules.catalog.repository import EventFilters, EventRepository
 from app.modules.catalog.schemas import (
@@ -15,6 +15,7 @@ from app.modules.catalog.schemas import (
     SaleStatus,
     VenueInfo,
 )
+from app.modules.catalog.venue_layout import HallConfig
 
 
 class EventNotFoundError(NotFoundError):
@@ -35,11 +36,16 @@ class PricesIncompleteError(ConflictError):
 class UnknownPriceCategoryError(AppError):
     status_code = 422
     code = "UNKNOWN_PRICE_CATEGORY"
-    title = "Неизвестная ценовая категория"
+    title = "Такой ценовой категории нет в выбранном режиме зала"
 
 
 def now_utc() -> datetime:
     return datetime.now(UTC)
+
+
+def hall_config_for(kind: str) -> HallConfig:
+    """Хоккей — трибуны вокруг льда; концерты и шоу — сцена, фан-зона и танцпол."""
+    return HallConfig.HOCKEY if kind == EventKind.SPORT else HallConfig.STAGE
 
 
 def sale_status(event: Event, now: datetime) -> SaleStatus:
@@ -60,6 +66,7 @@ def _card_fields(event: Event, now: datetime) -> dict:
         "id": event.id,
         "title": event.title,
         "kind": event.kind,
+        "hall_config": hall_config_for(event.kind),
         "starts_at": event.starts_at,
         "sales_start_at": event.sales_start_at,
         "sales_end_at": event.sales_end_at,
@@ -120,9 +127,12 @@ class CatalogService:
 
     async def _validate_prices(self, data: EventIn) -> None:
         ref = await self.reference()
-        unknown = [p.category_id for p in data.prices if p.category_id not in ref.categories]
+        allowed = ref.config_categories[hall_config_for(data.kind)]
+        unknown = [p.category_id for p in data.prices if p.category_id not in allowed]
         if unknown:
-            raise UnknownPriceCategoryError(extra={"category_ids": unknown})
+            raise UnknownPriceCategoryError(
+                extra={"category_ids": unknown, "allowed_category_ids": sorted(allowed)}
+            )
 
     @staticmethod
     def _apply(event: Event, data: EventIn) -> None:
@@ -161,7 +171,8 @@ class CatalogService:
         if event.status == EventStatus.PUBLISHED:
             return event  # повторная публикация — не ошибка
         ref = await self.reference()
-        missing = sorted(set(ref.categories) - {p.price_category_id for p in event.prices})
+        required = ref.config_categories[hall_config_for(event.kind)]
+        missing = sorted(required - {p.price_category_id for p in event.prices})
         if missing:
             raise PricesIncompleteError(extra={"missing_category_ids": missing})
         event.status = EventStatus.PUBLISHED

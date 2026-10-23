@@ -5,19 +5,25 @@
  * OpenAPI spec version: dev
  */
 import type { CategoryOut } from './categoryOut';
+import type { HallConfigOut } from './hallConfigOut';
+import type { RinkOut } from './rinkOut';
 import type { SeatOut } from './seatOut';
 import type { SectionOut } from './sectionOut';
 
 /**
  * Статичная схема площадки: одинакова для всех мероприятий, отлично кэшируется.
+ *
+ * Места стоячих зон в `seats` не входят — у них нет ряда и координат, только вместимость.
  */
 export interface VenueLayout {
   name: string;
   address: string;
   width: number;
   height: number;
+  rink: RinkOut;
   stage_path: string;
   categories: CategoryOut[];
+  hall_configs: HallConfigOut[];
   sections: SectionOut[];
   seats: SeatOut[];
 }

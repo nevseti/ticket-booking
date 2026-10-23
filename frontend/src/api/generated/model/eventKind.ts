@@ -5,13 +5,14 @@
  * OpenAPI spec version: dev
  */
 
+/**
+ * Тип мероприятия. Ледовая арена принимает концерты, шоу и хоккей — театра нет.
+ */
 export type EventKind = typeof EventKind[keyof typeof EventKind];
 
 
 export const EventKind = {
   concert: 'concert',
-  theatre: 'theatre',
-  sport: 'sport',
   show: 'show',
-  other: 'other',
+  sport: 'sport',
 } as const;

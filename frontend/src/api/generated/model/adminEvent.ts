@@ -6,6 +6,7 @@
  */
 import type { EventKind } from './eventKind';
 import type { EventStatus } from './eventStatus';
+import type { HallConfig } from './hallConfig';
 import type { PriceOut } from './priceOut';
 import type { SaleStatus } from './saleStatus';
 import type { VenueInfo } from './venueInfo';
@@ -14,6 +15,8 @@ export interface AdminEvent {
   id: string;
   title: string;
   kind: EventKind;
+  /** Режим зала: hockey или stage (сцена) */
+  hall_config: HallConfig;
   starts_at: string;
   sales_start_at: string;
   sales_end_at: string;

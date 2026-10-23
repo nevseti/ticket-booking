@@ -4,7 +4,8 @@ from dataclasses import dataclass
 from datetime import datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import insert, select
+from sqlalchemy import delete, insert, select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.catalog.models import (
@@ -25,22 +26,33 @@ MSK = ZoneInfo("Europe/Moscow")
 async def seed_venue(session: AsyncSession) -> int:
     """Создать площадку со схемой зала. Идемпотентно: если площадка есть — ничего не делает.
 
+    Ценовые категории обновляются всегда (upsert): их названия и цвета берутся из кода.
     Возвращает число созданных мест (0, если площадка уже была).
     """
+    spec = build_arena()
+    upsert = pg_insert(PriceCategory).values(
+        [{"id": c.id, "name": c.name, "color": c.color} for c in spec.categories]
+    )
+    await session.execute(
+        upsert.on_conflict_do_update(
+            index_elements=[PriceCategory.id],
+            set_={"name": upsert.excluded.name, "color": upsert.excluded.color},
+        )
+    )
     if await session.scalar(select(Venue.id).limit(1)) is not None:
         return 0
 
-    spec = build_arena()
-    await session.execute(
-        insert(PriceCategory),
-        [{"id": c.id, "name": c.name, "color": c.color} for c in spec.categories],
-    )
     venue = Venue(
         name=spec.name,
         address=spec.address,
         width=spec.width,
         height=spec.height,
         stage_path=spec.stage_path,
+        rink_x=spec.rink.x,
+        rink_y=spec.rink.y,
+        rink_width=spec.rink.width,
+        rink_height=spec.rink.height,
+        rink_radius=spec.rink.radius,
     )
     session.add(venue)
     await session.flush()
@@ -55,6 +67,8 @@ async def seed_venue(session: AsyncSession) -> int:
             label_x=section_spec.label_x,
             label_y=section_spec.label_y,
             sort_order=order,
+            kind=section_spec.kind,
+            configs=list(section_spec.configs),
         )
         session.add(section)
         await session.flush()
@@ -73,8 +87,23 @@ async def seed_venue(session: AsyncSession) -> int:
     return len(seat_rows)
 
 
+# --- Демо-афиша --------------------------------------------------------------------------
+
+
 def _at(day: datetime, hour: int, minute: int = 0) -> datetime:
     return datetime.combine(day.date(), time(hour, minute), tzinfo=MSK)
+
+
+def stage_prices(
+    vip: int, fan: int, dance: int, lower: int, middle: int, upper: int
+) -> dict[int, int]:
+    """Цены концерта/шоу в рублях: VIP, фан-зона, танцпол, нижний/средний/верхний ярус."""
+    return {1: vip, 2: fan, 3: dance, 4: lower, 5: middle, 6: upper}
+
+
+def hockey_prices(vip: int, lower: int, middle: int, upper: int) -> dict[int, int]:
+    """Цены хоккея в рублях: VIP, нижний/средний/верхний ярус (партера на льду нет)."""
+    return {1: vip, 4: lower, 5: middle, 6: upper}
 
 
 @dataclass(frozen=True)
@@ -83,28 +112,29 @@ class DemoEvent:
     kind: EventKind
     in_days: int  # через сколько дней мероприятие
     hour: int  # время начала по Москве
-    prices: tuple[int, int, int, int]  # ₽: VIP, партер, амфитеатр, балкон
+    prices: dict[int, int]  # id категории → цена в рублях
     description: str
     sales_in_days: int = 0  # 0 — продажи уже открыты; N — откроются через N дней в 12:00
 
 
-# Учебные данные: концерты вымышленные, билеты ненастоящие (оплата — имитация).
+# Учебные данные: мероприятия вымышленные, билеты ненастоящие (оплата — имитация).
 DEMO_EVENTS = [
+    # --- Концерты ---
     DemoEvent(
         "Big Baby Tape. Dragonborn Arena Show",
         EventKind.CONCERT,
         16,
         20,
-        (9900, 6500, 4200, 2800),
-        "Большое шоу с новым светом и пиротехникой: хиты от «Gimme The Loot» до свежих треков. "
-        "Танцпартер перед сценой — для тех, кто пришёл качать.",
+        stage_prices(15000, 9900, 6500, 7500, 4900, 2900),
+        "Большое шоу с новым светом и пиротехникой: хиты от «Gimme The Loot» до свежих "
+        "треков. Фан-зона у сцены — для тех, кто пришёл качать.",
     ),
     DemoEvent(
         "OG Buda. Опасный сольник",
         EventKind.CONCERT,
         23,
         20,
-        (8500, 5500, 3500, 2300),
+        stage_prices(13000, 8500, 5500, 6500, 4200, 2500),
         "Мелодичный трэп и любимые фиты в одном сете. Специальные гости — сюрприз до последнего.",
     ),
     DemoEvent(
@@ -112,7 +142,7 @@ DEMO_EVENTS = [
         EventKind.CONCERT,
         30,
         19,
-        (7000, 4800, 3200, 2000),
+        stage_prices(11000, 7000, 4800, 5500, 3800, 2200),
         "Кьют-рок, гитары и песни, которые зал знает наизусть. Берите друзей — будет громко.",
     ),
     DemoEvent(
@@ -120,9 +150,9 @@ DEMO_EVENTS = [
         EventKind.CONCERT,
         41,
         20,
-        (11000, 7500, 4900, 3200),
-        "Живой состав, джаз-вставки и долгожданные треки. Продажи откроются через три дня — "
-        "успейте в момент старта.",
+        stage_prices(17000, 11000, 7500, 8500, 5500, 3300),
+        "Живой состав, джаз-вставки и долгожданные треки. Продажи откроются через три "
+        "дня — успейте в момент старта.",
         sales_in_days=3,
     ),
     DemoEvent(
@@ -130,7 +160,7 @@ DEMO_EVENTS = [
         EventKind.CONCERT,
         12,
         20,
-        (7500, 5000, 3300, 2100),
+        stage_prices(11500, 7500, 5000, 5800, 3900, 2300),
         "Первый большой сольник на арене: все хиты и премьера новых песен.",
     ),
     DemoEvent(
@@ -138,7 +168,7 @@ DEMO_EVENTS = [
         EventKind.CONCERT,
         19,
         21,
-        (6900, 4500, 3000, 1900),
+        stage_prices(10500, 6900, 4500, 5200, 3500, 2100),
         "Атмосферный вечер с визуальным шоу на весь зал.",
     ),
     DemoEvent(
@@ -146,7 +176,7 @@ DEMO_EVENTS = [
         EventKind.CONCERT,
         34,
         19,
-        (6000, 4200, 2800, 1700),
+        stage_prices(9000, 6000, 4200, 4800, 3200, 1900),
         "Первая половина — акустический сет, вторая — громкий электрический.",
     ),
     DemoEvent(
@@ -154,7 +184,7 @@ DEMO_EVENTS = [
         EventKind.CONCERT,
         27,
         20,
-        (9500, 6200, 3900, 2500),
+        stage_prices(14500, 9500, 6200, 7200, 4600, 2700),
         "Танцы, костюмы и хореография — шоу, которое снимают на телефоны с первого трека.",
     ),
     DemoEvent(
@@ -162,40 +192,95 @@ DEMO_EVENTS = [
         EventKind.CONCERT,
         48,
         20,
-        (6500, 4500, 3000, 1800),
-        "Пост-панк, драйв и слэм в партере. Для своих.",
+        stage_prices(9500, 6500, 4500, 5000, 3300, 2000),
+        "Пост-панк, драйв и слэм на танцполе. Для своих.",
     ),
     DemoEvent(
-        "Макс Корж. Зимний стадионный вечер",
+        "Макс Корж. Зимний вечер на арене",
         EventKind.CONCERT,
         62,
         19,
-        (12000, 8000, 5000, 3500),
+        stage_prices(18000, 12000, 8000, 9000, 6000, 3800),
         "Песни, под которые поёт весь зал. Продажи стартуют через неделю.",
         sales_in_days=7,
     ),
+    # --- Шоу ---
     DemoEvent(
-        "Хоккей. Финал регулярного чемпионата",
-        EventKind.SPORT,
-        9,
+        "Ледовое шоу «Щелкунчик»",
+        EventKind.SHOW,
+        45,
+        18,
+        stage_prices(9000, 6000, 4500, 5000, 3500, 2000),
+        "Новогодняя история на льду: чемпионы мира по фигурному катанию, живой оркестр "
+        "и световые проекции. Для всей семьи.",
+    ),
+    DemoEvent(
+        "Импровизация. Большой тур",
+        EventKind.SHOW,
+        14,
         19,
-        (9000, 5000, 3000, 1800),
-        "Решающий матч сезона: лидеры конференции в борьбе за первое место.",
+        stage_prices(8000, 5500, 4000, 4500, 3000, 1800),
+        "Четыре импровизатора, ни одной заготовки: каждая сцена рождается из ваших подсказок. 16+.",
     ),
     DemoEvent(
         "Большой стендап-концерт",
         EventKind.SHOW,
         6,
         20,
-        (5000, 3500, 2200, 1200),
+        stage_prices(7000, 5000, 3500, 4000, 2600, 1500),
         "Пять комиков, два часа без перерыва. 18+.",
+    ),
+    DemoEvent(
+        "Шоу «Битва битбоксеров»",
+        EventKind.SHOW,
+        37,
+        19,
+        stage_prices(6000, 4200, 3200, 3500, 2400, 1400),
+        "Финал чемпионата по битбоксу: лупстейшены, дуэты и баттлы на вылет.",
+    ),
+    # --- Спорт (хоккей) ---
+    DemoEvent(
+        "Хоккей. Динамо — СКА",
+        EventKind.SPORT,
+        9,
+        19,
+        hockey_prices(8000, 3500, 2200, 1200),
+        "Регулярный чемпионат: принципиальное противостояние Москвы и Петербурга.",
+    ),
+    DemoEvent(
+        "Хоккей. ЦСКА — Спартак",
+        EventKind.SPORT,
+        18,
+        19,
+        hockey_prices(9000, 4000, 2500, 1400),
+        "Московское дерби — самый горячий матч месяца, аншлаг гарантирован.",
+    ),
+    DemoEvent(
+        "Хоккей. Динамо — Ак Барс",
+        EventKind.SPORT,
+        25,
+        17,
+        hockey_prices(7000, 3000, 1900, 1000),
+        "Матч лидеров конференций в выходной день — берите детей на трибуны.",
+    ),
+    DemoEvent(
+        "Хоккей. Матч звёзд",
+        EventKind.SPORT,
+        55,
+        16,
+        hockey_prices(12000, 5500, 3500, 2000),
+        "Мастер-шоу, конкурсы на скорость и точность бросков и звёздный матч. "
+        "Продажи откроются через пять дней.",
+        sales_in_days=5,
     ),
 ]
 
 
-async def seed_demo_events(session: AsyncSession, now: datetime) -> int:
-    """Опубликованные демо-мероприятия. Только если мероприятий ещё нет."""
-    if await session.scalar(select(Event.id).limit(1)) is not None:
+async def seed_demo_events(session: AsyncSession, now: datetime, *, reset: bool = False) -> int:
+    """Опубликованные демо-мероприятия. Без reset — только если мероприятий ещё нет."""
+    if reset:
+        await session.execute(delete(Event))
+    elif await session.scalar(select(Event.id).limit(1)) is not None:
         return 0
     today = now.astimezone(MSK)
     for demo in DEMO_EVENTS:
@@ -217,7 +302,7 @@ async def seed_demo_events(session: AsyncSession, now: datetime) -> int:
                 published_at=now,
                 prices=[
                     EventPrice(price_category_id=category, price_kopecks=rubles * 100)
-                    for category, rubles in enumerate(demo.prices, start=1)
+                    for category, rubles in demo.prices.items()
                 ],
             )
         )

@@ -8,13 +8,26 @@ from httpx import AsyncClient
 from app.core.db import UnitOfWork
 from app.modules.catalog import facade as catalog
 from app.modules.catalog.seed import DEMO_EVENTS, seed_demo_events, seed_venue
-from app.modules.catalog.venue_layout import build_arena
+from app.modules.catalog.venue_layout import HallConfig, SectionKind, build_arena
 
-ALL_PRICES = [
-    {"category_id": 1, "price_kopecks": 900_000},
-    {"category_id": 2, "price_kopecks": 500_000},
-    {"category_id": 3, "price_kopecks": 300_000},
-    {"category_id": 4, "price_kopecks": 150_000},
+# Концерт/шоу (режим «сцена»): VIP, фан-зона, танцпол, нижний, средний, верхний ярус.
+STAGE_PRICES = [
+    {"category_id": 1, "price_kopecks": 1_500_000},
+    {"category_id": 2, "price_kopecks": 900_000},
+    {"category_id": 3, "price_kopecks": 600_000},
+    {"category_id": 4, "price_kopecks": 700_000},
+    {"category_id": 5, "price_kopecks": 450_000},
+    {"category_id": 6, "price_kopecks": 250_000},
+]
+# Хоккей: партера на льду нет — только VIP и ярусы.
+HOCKEY_PRICES = [p for p in STAGE_PRICES if p["category_id"] in (1, 4, 5, 6)]
+STAGE_CATEGORY_NAMES = [
+    "VIP",
+    "Фан-зона",
+    "Танцпол",
+    "Нижний ярус",
+    "Средний ярус",
+    "Верхний ярус",
 ]
 
 
@@ -26,9 +39,9 @@ def payload(**overrides: Any) -> dict[str, Any]:
         "kind": "concert",
         "starts_at": (now + timedelta(days=10)).isoformat(),
         "sales_start_at": (now - timedelta(hours=1)).isoformat(),
-        "prices": ALL_PRICES,
     }
     body.update(overrides)
+    body.setdefault("prices", HOCKEY_PRICES if body["kind"] == "sport" else STAGE_PRICES)
     return body
 
 
@@ -55,9 +68,16 @@ async def test_layout_matches_generator_and_supports_etag(client: AsyncClient) -
 
     assert resp.status_code == 200
     layout = resp.json()
-    assert len(layout["seats"]) == spec.seat_count
+    seated = sum(len(s.seats) for s in spec.sections if s.kind == SectionKind.SEATED)
+    assert len(layout["seats"]) == seated  # места стоячих зон на схеме не рисуются
     assert len(layout["sections"]) == len(spec.sections)
-    assert [c["name"] for c in layout["categories"]] == ["VIP", "Партер", "Амфитеатр", "Балкон"]
+    assert [c["name"] for c in layout["categories"]] == STAGE_CATEGORY_NAMES
+    configs = {c["id"]: c for c in layout["hall_configs"]}
+    assert configs["hockey"]["capacity"] == spec.capacity(HallConfig.HOCKEY)
+    assert configs["hockey"]["category_ids"] == [1, 4, 5, 6]
+    assert configs["stage"]["category_ids"] == [1, 2, 3, 4, 5, 6]
+    standing = [s for s in layout["sections"] if s["kind"] == "standing"]
+    assert {s["name"]: s["capacity"] for s in standing} == {"Фан-зона": 500, "Танцпол": 1500}
     assert "max-age" in resp.headers["cache-control"]
 
     cached = await client.get("/api/venue/layout", headers={"If-None-Match": resp.headers["etag"]})
@@ -99,13 +119,34 @@ async def test_draft_is_hidden_from_public(
 async def test_publish_requires_all_prices(
     client: AsyncClient, admin_headers: dict[str, str]
 ) -> None:
-    event = await create_event(client, admin_headers, publish=False, prices=ALL_PRICES[:2])
+    event = await create_event(client, admin_headers, publish=False, prices=STAGE_PRICES[:2])
 
     resp = await client.post(f"/api/admin/events/{event['id']}/publish", headers=admin_headers)
 
     assert resp.status_code == 409
     assert resp.json()["code"] == "PRICES_INCOMPLETE"
-    assert resp.json()["missing_category_ids"] == [3, 4]
+    assert resp.json()["missing_category_ids"] == [3, 4, 5, 6]
+
+
+async def test_hockey_uses_hockey_categories(
+    client: AsyncClient, admin_headers: dict[str, str]
+) -> None:
+    event = await create_event(client, admin_headers, kind="sport", title="Хоккей")
+
+    assert event["hall_config"] == "hockey"
+    assert [p["category_name"] for p in event["prices"]] == [
+        "VIP",
+        "Нижний ярус",
+        "Средний ярус",
+        "Верхний ярус",
+    ]
+    # Цена на фан-зону и танцпол для хоккея бессмысленна: партера на льду нет.
+    resp = await client.post(
+        "/api/admin/events", json=payload(kind="sport", prices=STAGE_PRICES), headers=admin_headers
+    )
+    assert resp.status_code == 422
+    assert resp.json()["code"] == "UNKNOWN_PRICE_CATEGORY"
+    assert resp.json()["category_ids"] == [2, 3]
 
 
 async def test_published_event_in_listing(
@@ -120,15 +161,11 @@ async def test_published_event_in_listing(
     card = listing["items"][0]
     assert card["id"] == event["id"]
     assert card["sale_status"] == "on_sale"
-    assert card["min_price_kopecks"] == 150_000
+    assert card["min_price_kopecks"] == 250_000
+    assert card["hall_config"] == "stage"
 
     detail = (await client.get(f"/api/events/{event['id']}")).json()
-    assert [p["category_name"] for p in detail["prices"]] == [
-        "VIP",
-        "Партер",
-        "Амфитеатр",
-        "Балкон",
-    ]
+    assert [p["category_name"] for p in detail["prices"]] == STAGE_CATEGORY_NAMES
     assert detail["venue"]["name"]
     assert detail["sales_end_at"] == detail["starts_at"]  # по умолчанию — до начала
 
@@ -147,7 +184,7 @@ async def test_sale_status_not_started(client: AsyncClient, admin_headers: dict[
             {"sales_start_at": (datetime.now(UTC) + timedelta(days=20)).isoformat()},
             "VALIDATION_ERROR",
         ),
-        ({"prices": [ALL_PRICES[0], ALL_PRICES[0]]}, "VALIDATION_ERROR"),
+        ({"prices": [STAGE_PRICES[0], STAGE_PRICES[0]]}, "VALIDATION_ERROR"),
         ({"starts_at": "2026-12-01T19:00:00"}, "VALIDATION_ERROR"),  # без часового пояса
         ({"prices": [{"category_id": 99, "price_kopecks": 100}]}, "UNKNOWN_PRICE_CATEGORY"),
         ({"title": "   "}, "VALIDATION_ERROR"),
@@ -167,7 +204,7 @@ async def test_update_event(client: AsyncClient, admin_headers: dict[str, str]) 
 
     resp = await client.put(
         f"/api/admin/events/{event['id']}",
-        json=payload(title="Новое название", prices=ALL_PRICES[:1] + ALL_PRICES[1:]),
+        json=payload(title="Новое название"),
         headers=admin_headers,
     )
 
@@ -254,17 +291,26 @@ async def test_seed_demo_events_once() -> None:
 
 
 async def test_facade(client: AsyncClient, admin_headers: dict[str, str]) -> None:
-    event = await create_event(client, admin_headers)
-    event_id = uuid.UUID(event["id"])
+    concert = await create_event(client, admin_headers)
+    hockey = await create_event(client, admin_headers, kind="sport", title="Хоккей")
+    layout = (await client.get("/api/venue/layout")).json()
+    codes = {s["id"]: s["code"] for s in layout["sections"]}
+    west_end = next(s for s in layout["seats"] if codes[s["section_id"]] == "118")  # за сценой
+    side = next(s for s in layout["seats"] if codes[s["section_id"]] == "103")  # вдоль борта
 
     async with UnitOfWork() as uow:
-        info = await catalog.get_event(uow, event_id)
-        prices = await catalog.get_prices(uow, event_id)
-        seats = await catalog.get_seats(uow, [1, 2, 10**9])
+        concert_info = await catalog.get_event(uow, uuid.UUID(concert["id"]))
+        hockey_info = await catalog.get_event(uow, uuid.UUID(hockey["id"]))
+        prices = await catalog.get_prices(uow, uuid.UUID(concert["id"]))
+        seats = await catalog.get_seats(uow, [west_end["id"], side["id"], 10**9])
         missing = await catalog.get_event(uow, uuid.uuid4())
 
-    assert info is not None and info.on_sale
-    assert prices == {1: 900_000, 2: 500_000, 3: 300_000, 4: 150_000}
-    assert set(seats) == {1, 2}  # несуществующее место отброшено
-    assert seats[1].section_code == "P1" and seats[1].row == "1" and seats[1].number == 1
+    assert concert_info is not None and concert_info.on_sale
+    assert hockey_info is not None and hockey_info.hall_config == HallConfig.HOCKEY
+    assert prices == {p["category_id"]: p["price_kopecks"] for p in STAGE_PRICES}
+    assert set(seats) == {west_end["id"], side["id"]}  # несуществующее место отброшено
+    # Западный торец закрыт сценой на концерте, но продаётся на хоккее.
+    assert not concert_info.sells(seats[west_end["id"]])
+    assert hockey_info.sells(seats[west_end["id"]])
+    assert concert_info.sells(seats[side["id"]]) and hockey_info.sells(seats[side["id"]])
     assert missing is None

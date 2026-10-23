@@ -22,9 +22,84 @@
   fill: light-dark(var(--mantine-color-gray-7), var(--mantine-color-dark-1));
   font-size: 22px;
   font-weight: 700;
-  letter-spacing: 6px;
+  letter-spacing: 8px;
   text-anchor: middle;
   dominant-baseline: middle;
+}
+
+/* Хоккейная площадка */
+.ice {
+  fill: light-dark(#eef6fd, #1b2836);
+  stroke: light-dark(var(--mantine-color-gray-5), var(--mantine-color-dark-3));
+  stroke-width: 3;
+}
+
+.redLine,
+.centerLine {
+  stroke: #e03131;
+  stroke-width: 2;
+}
+
+.centerLine {
+  stroke-width: 4;
+}
+
+.blueLine {
+  stroke: #1c7ed6;
+  stroke-width: 5;
+}
+
+.blueCircle,
+.faceoffCircle {
+  fill: none;
+  stroke: #1c7ed6;
+  stroke-width: 2;
+}
+
+.faceoffCircle {
+  stroke: #e03131;
+}
+
+.faceoffDot {
+  fill: #e03131;
+}
+
+.crease {
+  fill: rgba(28, 126, 214, 0.35);
+  stroke: #e03131;
+  stroke-width: 1.5;
+}
+
+/* Концертная конфигурация: пол арены и стоячие зоны */
+.floor {
+  fill: light-dark(var(--mantine-color-gray-1), var(--mantine-color-dark-6));
+}
+
+.zone {
+  fill-opacity: 0.32;
+  stroke: light-dark(var(--mantine-color-white), var(--mantine-color-dark-7));
+  stroke-width: 3;
+  cursor: pointer;
+  transition: fill-opacity 120ms ease;
+}
+
+.zone:hover {
+  fill-opacity: 0.5;
+}
+
+.zoneLabel {
+  fill: light-dark(var(--mantine-color-dark-6), var(--mantine-color-gray-1));
+  font-size: 26px;
+  font-weight: 700;
+  text-anchor: middle;
+  pointer-events: none;
+}
+
+.zoneHint {
+  fill: var(--mantine-color-dimmed);
+  font-size: 15px;
+  text-anchor: middle;
+  pointer-events: none;
 }
 
 .section {
@@ -35,7 +110,7 @@
 
 .sectionLabel {
   fill: var(--mantine-color-dimmed);
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 600;
   text-anchor: middle;
   dominant-baseline: middle;

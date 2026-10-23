@@ -4,6 +4,8 @@
  * Ticket Booking API
  * OpenAPI spec version: dev
  */
+import type { HallConfig } from './hallConfig';
+import type { SectionKind } from './sectionKind';
 
 export interface SectionOut {
   id: number;
@@ -12,4 +14,10 @@ export interface SectionOut {
   path: string;
   label_x: number;
   label_y: number;
+  kind: SectionKind;
+  /** Режимы зала, в которых сектор продаётся */
+  configs: HallConfig[];
+  capacity: number;
+  /** Категория стоячей зоны (у сидячих — у мест) */
+  category_id: number | null;
 }

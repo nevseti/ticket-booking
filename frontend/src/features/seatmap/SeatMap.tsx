@@ -4,50 +4,148 @@ import { memo, useCallback, useMemo, useRef, useState } from 'react'
 import type { MouseEvent } from 'react'
 import { TransformComponent, TransformWrapper } from 'react-zoom-pan-pinch'
 
-import type { SeatOut, VenueLayout } from '../../api/generated/model'
+import type {
+  HallConfig,
+  RinkOut,
+  SeatOut,
+  SectionOut,
+  VenueLayout,
+} from '../../api/generated/model'
 import { formatPrice } from '../../shared/format'
 import classes from './SeatMap.module.css'
 
-const SEAT_RADIUS = 6
+const SEAT_RADIUS = 5.5
 
 export interface SeatMapProps {
   layout: VenueLayout
+  /** Режим зала мероприятия: какие секторы показывать и что нарисовать в центре. */
+  hallConfig: HallConfig
   /** Цены мероприятия: id категории → копейки. Без них подсказка показывает только место. */
   prices?: Map<number, number>
 }
 
-interface Hovered {
-  seat: SeatOut
-  left: number
-  top: number
+type Hovered =
+  | { type: 'seat'; seat: SeatOut; left: number; top: number }
+  | { type: 'zone'; section: SectionOut; left: number; top: number }
+
+/** Хоккейная разметка в пропорциях площадки 60×30 м (как у КХЛ/НХЛ). */
+function IceRink({ rink }: { rink: RinkOut }) {
+  const { x, y, width: w, height: h, radius } = rink
+  const cx = x + w / 2
+  const cy = y + h / 2
+  const goal = w * 0.055 // линия ворот от борта
+  const blue = w * 0.125 // синие линии от центра
+  const circle = h * 0.176 // радиус кругов вбрасывания
+  const dots = [x + goal + w * 0.1, x + w - goal - w * 0.1].flatMap((fx) =>
+    [cy - h * 0.26, cy + h * 0.26].map((fy) => [fx, fy] as const),
+  )
+  return (
+    <g>
+      <rect x={x} y={y} width={w} height={h} rx={radius} className={classes.ice} />
+      <line x1={x + goal} y1={y + 12} x2={x + goal} y2={y + h - 12} className={classes.redLine} />
+      <line
+        x1={x + w - goal}
+        y1={y + 12}
+        x2={x + w - goal}
+        y2={y + h - 12}
+        className={classes.redLine}
+      />
+      <line x1={cx - blue} y1={y} x2={cx - blue} y2={y + h} className={classes.blueLine} />
+      <line x1={cx + blue} y1={y} x2={cx + blue} y2={y + h} className={classes.blueLine} />
+      <line x1={cx} y1={y} x2={cx} y2={y + h} className={classes.centerLine} />
+      <circle cx={cx} cy={cy} r={circle} className={classes.blueCircle} />
+      {dots.map(([fx, fy]) => (
+        <g key={`${fx}-${fy}`}>
+          <circle cx={fx} cy={fy} r={circle} className={classes.faceoffCircle} />
+          <circle cx={fx} cy={fy} r={3} className={classes.faceoffDot} />
+        </g>
+      ))}
+      <path
+        d={`M ${x + goal} ${cy - 14} a 14 14 0 0 1 0 28 z`}
+        className={classes.crease}
+      />
+      <path
+        d={`M ${x + w - goal} ${cy - 14} a 14 14 0 0 0 0 28 z`}
+        className={classes.crease}
+      />
+    </g>
+  )
 }
 
 /**
- * Статичная часть схемы: сцена, секторы, места. Мемоизирована целиком — при наведении
- * курсора и прочих перерисовках родителя 2–3 тысячи элементов SVG не пересоздаются.
+ * Статичная часть схемы: поле, секторы, места. Мемоизирована целиком — при наведении
+ * курсора и прочих перерисовках родителя тысячи элементов SVG не пересоздаются.
  */
-const SeatLayer = memo(function SeatLayer({ layout }: { layout: VenueLayout }) {
+const SeatLayer = memo(function SeatLayer({
+  layout,
+  hallConfig,
+}: {
+  layout: VenueLayout
+  hallConfig: HallConfig
+}) {
   const colors = useMemo(
     () => new Map(layout.categories.map((c) => [c.id, c.color])),
     [layout.categories],
   )
-  const stageX = layout.width / 2
+  const sections = layout.sections.filter((s) => s.configs.includes(hallConfig))
+  const visible = new Set(sections.map((s) => s.id))
+  const seats = layout.seats.filter((seat) => visible.has(seat.section_id))
+  const { rink } = layout
+
   return (
     <>
-      <path d={layout.stage_path} className={classes.stage} />
-      <text x={stageX} y={62} className={classes.stageLabel}>
-        СЦЕНА
-      </text>
-      {layout.sections.map((section) => (
-        <g key={section.id}>
-          <path d={section.path} className={classes.section} />
-          <text x={section.label_x} y={section.label_y} className={classes.sectionLabel}>
-            {section.name}
+      {hallConfig === 'hockey' ? (
+        <IceRink rink={rink} />
+      ) : (
+        <>
+          <rect
+            x={rink.x}
+            y={rink.y}
+            width={rink.width}
+            height={rink.height}
+            rx={rink.radius}
+            className={classes.floor}
+          />
+          <path d={layout.stage_path} className={classes.stage} />
+          <text
+            x={rink.x - 55}
+            y={rink.y + rink.height / 2}
+            className={classes.stageLabel}
+            transform={`rotate(-90 ${rink.x - 55} ${rink.y + rink.height / 2})`}
+          >
+            СЦЕНА
           </text>
-        </g>
-      ))}
+        </>
+      )}
+
+      {sections.map((section) =>
+        section.kind === 'standing' ? (
+          <g key={section.id}>
+            <path
+              d={section.path}
+              data-section-id={section.id}
+              fill={colors.get(section.category_id ?? 0)}
+              className={classes.zone}
+            />
+            <text x={section.label_x} y={section.label_y - 8} className={classes.zoneLabel}>
+              {section.name}
+            </text>
+            <text x={section.label_x} y={section.label_y + 16} className={classes.zoneHint}>
+              стоячие места
+            </text>
+          </g>
+        ) : (
+          <g key={section.id}>
+            <path d={section.path} className={classes.section} />
+            <text x={section.label_x} y={section.label_y} className={classes.sectionLabel}>
+              {section.code}
+            </text>
+          </g>
+        ),
+      )}
+
       <g>
-        {layout.seats.map((seat) => (
+        {seats.map((seat) => (
           <circle
             key={seat.id}
             data-seat-id={seat.id}
@@ -63,7 +161,7 @@ const SeatLayer = memo(function SeatLayer({ layout }: { layout: VenueLayout }) {
   )
 })
 
-export function SeatMap({ layout, prices }: SeatMapProps) {
+export function SeatMap({ layout, hallConfig, prices }: SeatMapProps) {
   const wrapperRef = useRef<HTMLDivElement>(null)
   const [hovered, setHovered] = useState<Hovered | null>(null)
 
@@ -81,25 +179,40 @@ export function SeatMap({ layout, prices }: SeatMapProps) {
   const handleMouseOver = useCallback(
     (e: MouseEvent<SVGSVGElement>) => {
       const target = e.target as Element
-      const id = target.getAttribute('data-seat-id')
-      const seat = id ? seatsById.get(Number(id)) : undefined
       const wrapper = wrapperRef.current
-      if (!seat || !wrapper) {
+      const seatId = target.getAttribute('data-seat-id')
+      const zoneId = target.getAttribute('data-section-id')
+      const seat = seatId ? seatsById.get(Number(seatId)) : undefined
+      const zone = zoneId ? sectionsById.get(Number(zoneId)) : undefined
+      if (!wrapper || (!seat && !zone)) {
         setHovered(null)
         return
       }
-      const seatBox = target.getBoundingClientRect()
       const box = wrapper.getBoundingClientRect()
-      setHovered({
-        seat,
-        left: seatBox.left + seatBox.width / 2 - box.left,
-        top: seatBox.top - box.top,
-      })
+      if (seat) {
+        const seatBox = target.getBoundingClientRect()
+        setHovered({
+          type: 'seat',
+          seat,
+          left: seatBox.left + seatBox.width / 2 - box.left,
+          top: seatBox.top - box.top,
+        })
+      } else if (zone) {
+        setHovered({
+          type: 'zone',
+          section: zone,
+          left: e.clientX - box.left,
+          top: e.clientY - box.top,
+        })
+      }
     },
-    [seatsById],
+    [seatsById, sectionsById],
   )
 
-  const hoveredPrice = hovered ? prices?.get(hovered.seat.category_id) : undefined
+  const categoryId =
+    hovered?.type === 'seat' ? hovered.seat.category_id : hovered?.section.category_id
+  const hoveredPrice = categoryId != null ? prices?.get(categoryId) : undefined
+  const categoryName = categoryId != null ? categoriesById.get(categoryId)?.name : undefined
 
   return (
     <div ref={wrapperRef} className={classes.wrapper} onMouseLeave={() => setHovered(null)}>
@@ -135,7 +248,7 @@ export function SeatMap({ layout, prices }: SeatMapProps) {
                 role="img"
                 aria-label={`Схема зала: ${layout.name}`}
               >
-                <SeatLayer layout={layout} />
+                <SeatLayer layout={layout} hallConfig={hallConfig} />
               </svg>
             </TransformComponent>
           </>
@@ -144,14 +257,25 @@ export function SeatMap({ layout, prices }: SeatMapProps) {
 
       {hovered && (
         <div className={classes.tooltip} style={{ left: hovered.left, top: hovered.top }}>
+          {hovered.type === 'seat' ? (
+            <>
+              <div>
+                <b>{sectionsById.get(hovered.seat.section_id)?.name}</b>
+              </div>
+              <div>
+                Ряд {hovered.seat.row}, место {hovered.seat.number}
+              </div>
+            </>
+          ) : (
+            <>
+              <div>
+                <b>{hovered.section.name}</b>
+              </div>
+              <div>Стоячие места · вместимость {hovered.section.capacity}</div>
+            </>
+          )}
           <div>
-            <b>{sectionsById.get(hovered.seat.section_id)?.name}</b>
-          </div>
-          <div>
-            Ряд {hovered.seat.row}, место {hovered.seat.number}
-          </div>
-          <div>
-            {categoriesById.get(hovered.seat.category_id)?.name}
+            {categoryName}
             {hoveredPrice != null && ` · ${formatPrice(hoveredPrice)}`}
           </div>
         </div>

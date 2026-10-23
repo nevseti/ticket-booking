@@ -36,18 +36,14 @@ export function formatShortDateTime(iso: string): string {
 
 export const KIND_LABELS: Record<EventKind, string> = {
   concert: 'Концерт',
-  theatre: 'Театр',
-  sport: 'Спорт',
   show: 'Шоу',
-  other: 'Другое',
+  sport: 'Хоккей',
 }
 
 export const KIND_GRADIENTS: Record<EventKind, { from: string; to: string }> = {
   concert: { from: '#7048e8', to: '#e64980' },
-  theatre: { from: '#c92a2a', to: '#f59f00' },
-  sport: { from: '#1971c2', to: '#0ca678' },
   show: { from: '#9c36b5', to: '#f76707' },
-  other: { from: '#495057', to: '#868e96' },
+  sport: { from: '#1971c2', to: '#0ca678' },
 }
 
 export const SALE_STATUS: Record<SaleStatus, { label: string; color: string }> = {
