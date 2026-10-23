@@ -10,13 +10,14 @@ from dataclasses import dataclass
 from app.core.db import UnitOfWork
 from app.core.errors import ConflictError
 from app.modules.booking.repository import HoldRepository
-from app.modules.booking.service import SEATS_RELEASED, emit_holds
+from app.modules.booking.service import HOLDS_EXPIRED, SEATS_RELEASED, emit_holds
 from app.shared.outbox import add_event
 
 __all__ = [
     "CheckoutHold",
     "HoldsChangedError",
     "confirm_sale",
+    "expire_overdue_holds",
     "prepare_checkout",
     "release_holds",
 ]
@@ -80,3 +81,15 @@ async def release_holds(uow: UnitOfWork, user_id: uuid.UUID, hold_ids: list[uuid
     released = await HoldRepository(uow.session).release_many(user_id, hold_ids)
     if released:
         emit_holds(uow, SEATS_RELEASED, released[0].event_id, released)
+
+
+async def expire_overdue_holds(uow: UnitOfWork, limit: int = 500) -> int:
+    """Фоновая уборка: погасить просроченные удержания и сообщить об этом событиями
+    (по одному событию на мероприятие). Возвращает число погашенных удержаний."""
+    expired = await HoldRepository(uow.session).expire_overdue(limit)
+    by_event: dict[uuid.UUID, list] = {}
+    for hold in expired:
+        by_event.setdefault(hold.event_id, []).append(hold)
+    for event_id, holds in by_event.items():
+        emit_holds(uow, HOLDS_EXPIRED, event_id, holds)
+    return len(expired)

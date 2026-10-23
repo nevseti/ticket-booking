@@ -1,0 +1,15 @@
+.item {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 10px 16px;
+  border-top: 1px solid var(--mantine-color-default-border);
+}
+
+.item:hover {
+  background: var(--mantine-color-default-hover);
+}
+
+.item[data-unread] {
+  background: light-dark(var(--mantine-color-violet-0), rgba(112, 72, 232, 0.12));
+}

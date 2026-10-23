@@ -243,3 +243,23 @@ class HoldRepository:
             {"hold_ids": hold_ids, "user_id": user_id},
         )
         return [_row(r) for r in rows]
+
+    async def expire_overdue(self, limit: int) -> list[HoldRow]:
+        """Погасить пачку просроченных удержаний. SKIP LOCKED: несколько воркеров не мешают
+        друг другу, а строки, которые прямо сейчас захватывает покупатель, пропускаются."""
+        rows = await self._session.execute(
+            text(f"""
+                WITH overdue AS (
+                    SELECT id FROM booking.holds
+                    WHERE status = 'active' AND expires_at <= now()
+                    ORDER BY expires_at
+                    LIMIT :limit
+                    FOR UPDATE SKIP LOCKED
+                )
+                UPDATE booking.holds h SET status = 'expired', closed_at = now()
+                FROM overdue WHERE h.id = overdue.id
+                RETURNING h.{_HOLD_COLUMNS.replace(", ", ", h.")}
+            """),
+            {"limit": limit},
+        )
+        return [_row(r) for r in rows]

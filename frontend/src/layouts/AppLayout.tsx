@@ -4,6 +4,7 @@ import { Link, NavLink, Outlet } from 'react-router'
 
 import { useHealth } from '../api/generated/system/system'
 import { UserMenu } from '../features/auth/UserMenu'
+import { NotificationBell } from '../features/notifications/NotificationBell'
 import { useCurrentUser } from '../features/auth/useCurrentUser'
 
 function ApiStatus() {
@@ -18,7 +19,7 @@ function ApiStatus() {
 }
 
 export function AppLayout() {
-  const { isAdmin } = useCurrentUser()
+  const { isAdmin, user } = useCurrentUser()
   return (
     <AppShell header={{ height: 60 }} footer={{ height: 36 }} padding="md">
       <AppShell.Header>
@@ -39,6 +40,7 @@ export function AppLayout() {
                   Админка
                 </Anchor>
               )}
+              {user && <NotificationBell />}
               <UserMenu />
             </Group>
           </Group>
