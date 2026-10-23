@@ -21,7 +21,9 @@ __all__ = [
     "SeatRef",
     "SectionKind",
     "SectionRef",
+    "get_categories",
     "get_event",
+    "get_events",
     "get_prices",
     "get_seats",
     "get_section",
@@ -85,3 +87,19 @@ async def standing_seat_ids(uow: UnitOfWork) -> dict[int, frozenset[int]]:
     return {
         s.id: frozenset(s.seat_ids) for s in ref.sections.values() if s.kind == SectionKind.STANDING
     }
+
+
+async def get_events(uow: UnitOfWork, event_ids: list[uuid.UUID]) -> dict[uuid.UUID, EventInfo]:
+    """Несколько мероприятий за раз (для списка заказов)."""
+    result = {}
+    for event_id in dict.fromkeys(event_ids):
+        info = await get_event(uow, event_id)
+        if info is not None:
+            result[event_id] = info
+    return result
+
+
+async def get_categories(uow: UnitOfWork) -> dict[int, str]:
+    """Ценовые категории: id → название."""
+    ref = await get_reference(uow.session)
+    return {c.id: c.name for c in ref.categories.values()}

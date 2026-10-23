@@ -64,10 +64,10 @@ class UnitOfWork:
         exc: BaseException | None,
         tb: TracebackType | None,
     ) -> None:
-        try:
-            await self.session.rollback()
-        finally:
-            await self.session.close()
+        # close() откатывает незафиксированную транзакцию и отвязывает объекты от сессии,
+        # сохраняя уже загруженные значения (rollback() бы их «протух», и читать объекты
+        # после выхода из UnitOfWork стало бы нельзя).
+        await self.session.close()
 
     async def commit(self) -> None:
         await self.session.commit()

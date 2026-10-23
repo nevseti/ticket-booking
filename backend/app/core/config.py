@@ -30,6 +30,10 @@ class Settings(BaseSettings):
     hold_ttl_seconds: int = 10 * 60  # сколько живёт удержание места
     max_holds_per_event: int = 6  # сколько мест один пользователь держит на мероприятие
 
+    # Банк-имитатор (оплата в MVP ненастоящая)
+    fake_payment_latency_ms: int = 600  # «время ответа банка»
+    fake_payment_decline_rate: float = 0.0  # доля случайных отказов (для нагрузочного теста)
+
     log_level: str = "INFO"
     log_json: bool = False
 
