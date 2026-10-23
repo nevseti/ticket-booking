@@ -3,12 +3,16 @@ import { useId } from 'react'
 
 import type { EventKind } from '../../api/generated/model'
 import { splitTitle } from '../../shared/eventTitle'
+import { HockeyCover } from './covers/HockeyCover'
+import { ShowCover } from './covers/ShowCover'
 import classes from './EventPoster.module.css'
 
 /**
- * Генерируемая афиша в стиле гастрольного постера: имя артиста крупным шрифтом, свет сцены
- * (концерты), софиты (шоу) или разметка льда и цвета команд (хоккей). Фото артистов не
- * используются — у них есть правообладатели, а сайт публичный.
+ * Обложка мероприятия:
+ *   есть фото (poster_url) — фото; демо-концерты — снимки артистов со свободной лицензией;
+ *   концерт без фото — сгенерированный постер с именем артиста;
+ *   хоккей  — эмблемы команд и «VS» (HockeyCover);
+ *   шоу     — иллюстрация по теме шоу (ShowCover).
  */
 
 const PALETTE: [string, string][] = [
@@ -23,16 +27,6 @@ const PALETTE: [string, string][] = [
   ['#364fc7', '#0c8599'],
   ['#c92a2a', '#862e9c'],
 ]
-
-// Цвета хоккейных клубов (для диагональной «формы» на афише матча)
-const TEAM_COLORS: Record<string, string> = {
-  Динамо: '#0b4ea2',
-  СКА: '#d6262f',
-  ЦСКА: '#b0101e',
-  Спартак: '#e03131',
-  'Ак Барс': '#0a7f3f',
-  Металлург: '#1c3f94',
-}
 
 function hash(value: string): number {
   let h = 0
@@ -53,14 +47,14 @@ function headlineSize(text: string, variant: 'card' | 'banner'): number {
 
 function ConcertLights({ id, seed }: { id: string; seed: number }) {
   const beams = [0, 1, 2, 3, 4].map((i) => {
-    const x = 60 + i * 70 + ((seed >> i) % 30)
-    const spread = 70 + ((seed >> (i + 3)) % 60)
+    const x = 60 + i * 70 + ((seed >>> i) % 30)
+    const spread = 70 + ((seed >>> (i + 3)) % 60)
     return `M ${x} -10 L ${x - spread} 260 L ${x + spread / 3} 260 Z`
   })
   const bokeh = Array.from({ length: 9 }, (_, i) => ({
     cx: (seed * (i + 3) * 37) % 400,
-    cy: 120 + ((seed >> i) % 110),
-    r: 6 + ((seed >> (i + 2)) % 18),
+    cy: 120 + ((seed >>> i) % 110),
+    r: 6 + ((seed >>> (i + 2)) % 18),
   }))
   return (
     <>
@@ -80,51 +74,7 @@ function ConcertLights({ id, seed }: { id: string; seed: number }) {
   )
 }
 
-function ShowSparkles({ seed }: { seed: number }) {
-  const stars = Array.from({ length: 14 }, (_, i) => ({
-    x: (seed * (i + 7) * 53) % 400,
-    y: (seed * (i + 3) * 29) % 230,
-    s: 2 + ((seed >> i) % 5),
-  }))
-  return (
-    <>
-      <circle cx="80" cy="-20" r="170" fill="#fff" opacity="0.10" />
-      <circle cx="340" cy="-40" r="150" fill="#fff" opacity="0.08" />
-      {stars.map((st) => (
-        <path
-          key={`${st.x}-${st.y}`}
-          d={`M ${st.x} ${st.y - st.s * 2} L ${st.x + st.s / 2} ${st.y - st.s / 2} L ${st.x + st.s * 2} ${st.y} L ${st.x + st.s / 2} ${st.y + st.s / 2} L ${st.x} ${st.y + st.s * 2} L ${st.x - st.s / 2} ${st.y + st.s / 2} L ${st.x - st.s * 2} ${st.y} L ${st.x - st.s / 2} ${st.y - st.s / 2} Z`}
-          fill="#fff"
-          opacity="0.55"
-        />
-      ))}
-    </>
-  )
-}
-
-function HockeyIce() {
-  return (
-    <g stroke="#fff" fill="none" opacity="0.28">
-      <line x1="200" y1="0" x2="200" y2="240" strokeWidth="5" />
-      <line x1="130" y1="0" x2="130" y2="240" strokeWidth="3" />
-      <line x1="270" y1="0" x2="270" y2="240" strokeWidth="3" />
-      <circle cx="200" cy="120" r="46" strokeWidth="3" />
-      <circle cx="60" cy="70" r="30" strokeWidth="2" />
-      <circle cx="60" cy="170" r="30" strokeWidth="2" />
-      <circle cx="340" cy="70" r="30" strokeWidth="2" />
-      <circle cx="340" cy="170" r="30" strokeWidth="2" />
-    </g>
-  )
-}
-
-function background(kind: EventKind, title: string, seed: number): string {
-  if (kind === 'sport') {
-    const teams = splitTitle(title).headline.split(' — ')
-    const left = TEAM_COLORS[teams[0]?.trim()] ?? '#1864ab'
-    const right = TEAM_COLORS[teams[1]?.trim()] ?? '#c92a2a'
-    if (teams.length < 2) return 'linear-gradient(135deg, #1c2a44, #c69214)'
-    return `linear-gradient(115deg, ${left} 0%, ${left} 49.6%, ${right} 50.4%, ${right} 100%)`
-  }
+function background(seed: number): string {
   const [from, to] = PALETTE[seed % PALETTE.length]
   return `linear-gradient(140deg, ${from}, ${to})`
 }
@@ -142,34 +92,35 @@ export function EventPoster({
   height: number
   posterUrl?: string | null
   seed?: string
-  /** card — с именем артиста на афише; banner — только фон (заголовок выводится отдельно) */
+  /** card — у сгенерированного постера пишем имя артиста; banner — только фон */
   variant?: 'card' | 'banner'
 }) {
   const id = useId().replace(/:/g, '')
   const seed = hash(seedKey ?? title)
   const { headline, subtitle } = splitTitle(title)
 
-  const text = variant === 'card' && (
-    <div className={classes.text}>
-      {subtitle && <div className={classes.subtitle}>{subtitle}</div>}
-      <div className={classes.headline} style={{ fontSize: headlineSize(headline, variant) }}>
-        {headline}
-      </div>
-    </div>
-  )
-
   if (posterUrl) {
-    // Фото со сцены + затемнение снизу, чтобы имя артиста читалось на любом снимке.
     return (
       <Box h={height} className={classes.poster} style={{ background: '#1a1b1e' }}>
         <img src={posterUrl} alt="" loading="lazy" className={classes.photo} />
-        {text}
+      </Box>
+    )
+  }
+
+  if (kind === 'sport' || kind === 'show') {
+    return (
+      <Box h={height} className={classes.poster}>
+        {kind === 'sport' ? (
+          <HockeyCover title={title} id={id} fit={variant} />
+        ) : (
+          <ShowCover title={title} id={id} fit={variant} />
+        )}
       </Box>
     )
   }
 
   return (
-    <Box h={height} className={classes.poster} style={{ background: background(kind, title, seed) }}>
+    <Box h={height} className={classes.poster} style={{ background: background(seed) }}>
       <svg className={classes.art} viewBox="0 0 400 240" preserveAspectRatio="xMidYMid slice">
         <defs>
           <filter id={`${id}-grain`}>
@@ -181,14 +132,19 @@ export function EventPoster({
             <stop offset="1" stopColor="#000" stopOpacity="0.55" />
           </radialGradient>
         </defs>
-        {kind === 'concert' && <ConcertLights id={id} seed={seed} />}
-        {kind === 'show' && <ShowSparkles seed={seed} />}
-        {kind === 'sport' && <HockeyIce />}
+        <ConcertLights id={id} seed={seed} />
         <rect width="400" height="240" fill={`url(#${id}-vignette)`} />
         <rect width="400" height="240" filter={`url(#${id}-grain)`} opacity="0.18" />
       </svg>
 
-      {text}
+      {variant === 'card' && (
+        <div className={classes.text}>
+          {subtitle && <div className={classes.subtitle}>{subtitle}</div>}
+          <div className={classes.headline} style={{ fontSize: headlineSize(headline, variant) }}>
+            {headline}
+          </div>
+        </div>
+      )}
     </Box>
   )
 }

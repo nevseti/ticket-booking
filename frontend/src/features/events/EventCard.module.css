@@ -1,11 +1,57 @@
 .card {
-  overflow: hidden;
-  transition:
-    transform 160ms ease,
-    box-shadow 160ms ease;
+  display: block;
+  color: inherit;
+  text-decoration: none;
 }
 
-.card:hover {
-  transform: translateY(-4px);
+.cover {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--mantine-radius-lg);
+  margin-bottom: 10px;
+  box-shadow: var(--mantine-shadow-xs);
+  transition: box-shadow 160ms ease;
+}
+
+.cover > * {
+  transition: transform 260ms ease;
+}
+
+.card:hover .cover {
   box-shadow: var(--mantine-shadow-lg);
+}
+
+.card:hover .cover > :first-child {
+  transform: scale(1.04);
+}
+
+.price {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  padding: 5px 11px;
+  border-radius: 999px;
+  background: #fff;
+  color: #111;
+  font-size: 13px;
+  font-weight: 700;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+}
+
+.status {
+  position: absolute;
+  right: 12px;
+  bottom: 14px;
+}
+
+.title {
+  font-family: 'Unbounded', var(--mantine-font-family);
+  font-weight: 700;
+  font-size: 16px;
+  line-height: 1.25;
+  margin-bottom: 4px;
+}
+
+.card:hover .title {
+  color: var(--mantine-primary-color-filled);
 }

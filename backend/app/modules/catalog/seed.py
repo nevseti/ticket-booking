@@ -276,9 +276,10 @@ DEMO_EVENTS = [
 ]
 
 
-# Фото со свободными лицензиями с Wikimedia Commons (скачаны, ужаты в WebP и лежат в
-# frontend/public/posters). Лицензии CC BY / CC BY-SA требуют указать автора — подпись
-# выводится на странице мероприятия.
+# Фото артистов со свободными лицензиями с Wikimedia Commons (скачаны, ужаты в WebP и лежат
+# в frontend/public/posters). Лицензии CC BY / CC BY-SA требуют указать автора — подпись
+# выводится на странице мероприятия. У хоккея и шоу фото нет: их обложки рисует фронтенд
+# (эмблемы команд, иллюстрации шоу).
 DEMO_POSTERS: dict[str, tuple[str, str, str]] = {
     "Big Baby Tape. Dragonborn Arena Show": (
         "/posters/big-baby-tape.webp",
@@ -309,41 +310,6 @@ DEMO_POSTERS: dict[str, tuple[str, str, str]] = {
         "/posters/max-korzh.webp",
         "Фото: Itokyl, CC BY-SA 4.0, Wikimedia Commons",
         "https://commons.wikimedia.org/wiki/File:Max-Korzh-2018-11-09-0011.jpg",
-    ),
-    "Хоккей. Динамо — СКА": (
-        "/posters/hockey-dynamo-1.webp",
-        "Фото: Voltmetro, CC BY-SA 3.0, Wikimedia Commons",
-        "https://commons.wikimedia.org/wiki/File:2019-01-06_-_KHL_Dynamo_Moscow_vs_Dinamo_Riga_-_Photo_32.jpg",
-    ),
-    "Хоккей. ЦСКА — Спартак": (
-        "/posters/hockey-arena.webp",
-        "Фото: Voltmetro, CC BY 3.0, Wikimedia Commons",
-        "https://commons.wikimedia.org/wiki/File:Dynamo_Stadium_-_Ice_hockey_arena_-_Panorama_during_match.jpg",
-    ),
-    "Хоккей. Динамо — Ак Барс": (
-        "/posters/hockey-dynamo-2.webp",
-        "Фото: Voltmetro, CC BY-SA 3.0, Wikimedia Commons",
-        "https://commons.wikimedia.org/wiki/File:2019-01-06_-_KHL_Dynamo_Moscow_vs_Dinamo_Riga_-_Photo_49.jpg",
-    ),
-    "Хоккей. Матч звёзд": (
-        "/posters/hockey-fans.webp",
-        "Фото: Elena Wiki Elena, CC BY-SA 4.0, Wikimedia Commons",
-        "https://commons.wikimedia.org/wiki/File:Ice_hockey_fans_to_enter_VTB_Ice_Palace_(2016_IIHF_WC).jpg",
-    ),
-    "Ледовое шоу «Щелкунчик»": (
-        "/posters/ice-show.webp",
-        "Фото: SKas, CC BY-SA 4.0, Wikimedia Commons",
-        "https://commons.wikimedia.org/wiki/File:Ice_show_City_Lights.jpg",
-    ),
-    "Большой стендап-концерт": (
-        "/posters/standup.webp",
-        "Фото: Carlos Delgado, CC BY-SA 3.0, Wikimedia Commons",
-        "https://commons.wikimedia.org/wiki/File:Stand-up_comedy_-_Stage.jpg",
-    ),
-    "Шоу «Битва битбоксеров»": (
-        "/posters/beatbox.webp",
-        "Фото: Hinorisakamachi, CC BY-SA 4.0, Wikimedia Commons",
-        "https://commons.wikimedia.org/wiki/File:Beatbox_House_GBB_2018.png",
     ),
 }
 
@@ -386,12 +352,16 @@ async def seed_demo_events(session: AsyncSession, now: datetime, *, reset: bool 
 
 
 async def apply_demo_posters(session: AsyncSession) -> int:
-    """Проставить фото демо-мероприятиям по названию (без пересоздания мероприятий)."""
+    """Проставить фото демо-мероприятиям по названию (без пересоздания мероприятий).
+
+    Демо-мероприятиям без фото в DEMO_POSTERS обложка сбрасывается — их рисует фронтенд.
+    """
     updated = 0
-    for title, (url, credit, source) in DEMO_POSTERS.items():
+    for demo in DEMO_EVENTS:
+        url, credit, source = DEMO_POSTERS.get(demo.title, (None, None, None))
         result = await session.execute(
             update(Event)
-            .where(Event.title == title)
+            .where(Event.title == demo.title)
             .values(poster_url=url, poster_credit=credit, poster_source=source)
         )
         updated += result.rowcount or 0

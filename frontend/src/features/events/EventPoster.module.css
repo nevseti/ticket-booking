@@ -12,12 +12,13 @@
   z-index: -1;
 }
 
+/* Имя артиста — сверху: внизу карточки лежит плашка с ценой */
 .text {
   position: absolute;
-  inset: auto 0 0 0;
-  padding: 16px 18px 18px;
+  inset: 0 0 auto 0;
+  padding: 18px 18px 28px;
   color: #fff;
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.55), transparent);
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.45), transparent);
 }
 
 .subtitle {
