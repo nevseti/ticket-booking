@@ -17,7 +17,7 @@ from sqlalchemy import (
     func,
     text,
 )
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import ARRAY, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db import Base
@@ -28,11 +28,11 @@ REFERENCE = {"reference_data": True}
 
 
 class EventKind(StrEnum):
+    """Тип мероприятия. Ледовая арена принимает концерты, шоу и хоккей — театра нет."""
+
     CONCERT = "concert"
-    THEATRE = "theatre"
-    SPORT = "sport"
     SHOW = "show"
-    OTHER = "other"
+    SPORT = "sport"
 
 
 class EventStatus(StrEnum):
@@ -51,6 +51,12 @@ class Venue(Base):
     width: Mapped[int] = mapped_column(Integer)  # размеры области схемы (viewBox SVG)
     height: Mapped[int] = mapped_column(Integer)
     stage_path: Mapped[str] = mapped_column(Text)  # контур сцены, SVG path
+    # Ледовая площадка (скруглённый прямоугольник) — для отрисовки разметки на хоккее.
+    rink_x: Mapped[float] = mapped_column(Float)
+    rink_y: Mapped[float] = mapped_column(Float)
+    rink_width: Mapped[float] = mapped_column(Float)
+    rink_height: Mapped[float] = mapped_column(Float)
+    rink_radius: Mapped[float] = mapped_column(Float)
 
 
 class PriceCategory(Base):
@@ -64,7 +70,10 @@ class PriceCategory(Base):
 
 class Section(Base):
     __tablename__ = "sections"
-    __table_args__ = ({"schema": "catalog", "info": REFERENCE},)
+    __table_args__ = (
+        CheckConstraint("kind IN ('seated', 'standing')", name="kind"),
+        {"schema": "catalog", "info": REFERENCE},
+    )
 
     id: Mapped[int] = mapped_column(SmallInteger, Identity(), primary_key=True)
     venue_id: Mapped[int] = mapped_column(ForeignKey("catalog.venues.id"))
@@ -74,6 +83,10 @@ class Section(Base):
     label_x: Mapped[float] = mapped_column(Float)
     label_y: Mapped[float] = mapped_column(Float)
     sort_order: Mapped[int] = mapped_column(SmallInteger)
+    # seated — места с рядом и номером; standing — стоячая зона из безымянных мест.
+    kind: Mapped[str] = mapped_column(String(16))
+    # Конфигурации зала, в которых сектор продаётся: hockey, stage.
+    configs: Mapped[list[str]] = mapped_column(ARRAY(String(16)))
 
 
 class Seat(Base):
@@ -95,7 +108,7 @@ class Seat(Base):
 class Event(Base):
     __tablename__ = "events"
     __table_args__ = (
-        CheckConstraint("kind IN ('concert', 'theatre', 'sport', 'show', 'other')", name="kind"),
+        CheckConstraint("kind IN ('concert', 'show', 'sport')", name="kind"),
         CheckConstraint("status IN ('draft', 'published', 'cancelled')", name="status"),
         CheckConstraint("sales_start_at < sales_end_at", name="sales_window"),
         CheckConstraint("sales_end_at <= starts_at", name="sales_before_start"),

@@ -1,19 +1,11 @@
-import {
-  IconBallBasketball,
-  IconMasksTheater,
-  IconMicrophone2,
-  IconMoodHappy,
-  IconSparkles,
-} from '@tabler/icons-react'
+import { IconIceSkating, IconMicrophone2, IconSparkles } from '@tabler/icons-react'
 
 import type { EventKind } from '../../api/generated/model'
 
 const ICONS = {
   concert: IconMicrophone2,
-  theatre: IconMasksTheater,
-  sport: IconBallBasketball,
-  show: IconMoodHappy,
-  other: IconSparkles,
+  show: IconSparkles,
+  sport: IconIceSkating,
 } satisfies Record<EventKind, unknown>
 
 export function KindIcon({ kind, size = 24 }: { kind: EventKind; size?: number }) {

@@ -11,9 +11,19 @@ from app.core.db import UnitOfWork
 from app.modules.catalog.reference import SeatRef, get_reference
 from app.modules.catalog.repository import EventRepository
 from app.modules.catalog.schemas import SaleStatus
-from app.modules.catalog.service import now_utc, sale_status
+from app.modules.catalog.service import hall_config_for, now_utc, sale_status
+from app.modules.catalog.venue_layout import HallConfig, SectionKind
 
-__all__ = ["EventInfo", "SaleStatus", "SeatRef", "get_event", "get_prices", "get_seats"]
+__all__ = [
+    "EventInfo",
+    "HallConfig",
+    "SaleStatus",
+    "SeatRef",
+    "SectionKind",
+    "get_event",
+    "get_prices",
+    "get_seats",
+]
 
 
 @dataclass(frozen=True)
@@ -22,10 +32,15 @@ class EventInfo:
     title: str
     starts_at: datetime
     sale_status: SaleStatus
+    hall_config: HallConfig
 
     @property
     def on_sale(self) -> bool:
         return self.sale_status == SaleStatus.ON_SALE
+
+    def sells(self, seat: SeatRef) -> bool:
+        """Продаётся ли место на это мероприятие (зависит от режима зала)."""
+        return self.hall_config in seat.configs
 
 
 async def get_event(uow: UnitOfWork, event_id: uuid.UUID) -> EventInfo | None:
@@ -37,6 +52,7 @@ async def get_event(uow: UnitOfWork, event_id: uuid.UUID) -> EventInfo | None:
         title=event.title,
         starts_at=event.starts_at,
         sale_status=sale_status(event, now_utc()),
+        hall_config=hall_config_for(event.kind),
     )
 
 

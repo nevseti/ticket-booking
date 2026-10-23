@@ -24,9 +24,8 @@ const PAGE_SIZE = 12
 const KIND_FILTERS = [
   { value: 'all', label: 'Все' },
   { value: 'concert', label: 'Концерты' },
-  { value: 'theatre', label: 'Театр' },
-  { value: 'sport', label: 'Спорт' },
   { value: 'show', label: 'Шоу' },
+  { value: 'sport', label: 'Хоккей' },
 ]
 
 export function HomePage() {
@@ -69,7 +68,7 @@ export function HomePage() {
     <Stack gap="lg" py="lg">
       <div>
         <Title order={1}>Афиша</Title>
-        <Text c="dimmed">Концерты, спектакли и спортивные события на одной площадке.</Text>
+        <Text c="dimmed">Концерты, шоу и хоккей на одной арене.</Text>
       </div>
 
       <Group justify="space-between" wrap="wrap">

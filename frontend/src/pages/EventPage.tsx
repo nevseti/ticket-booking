@@ -147,7 +147,7 @@ export function EventPage() {
       <SaleBanner event={event} onSalesOpen={() => eventQuery.refetch()} />
 
       {layoutQuery.data ? (
-        <SeatMap layout={layoutQuery.data} prices={prices} />
+        <SeatMap layout={layoutQuery.data} hallConfig={event.hall_config} prices={prices} />
       ) : (
         <Skeleton h={480} radius="md" />
       )}

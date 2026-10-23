@@ -67,7 +67,10 @@ function toFormValues(event: AdminEvent): FormValues {
   }
 }
 
-function toPayload(values: FormValues): EventIn {
+/** Режим зала по типу мероприятия — то же правило, что на сервере (catalog.service). */
+const hallConfigFor = (kind: EventKind) => (kind === 'sport' ? 'hockey' : 'stage')
+
+function toPayload(values: FormValues, allowed: Set<number>): EventIn {
   return {
     title: values.title,
     kind: values.kind,
@@ -77,6 +80,8 @@ function toPayload(values: FormValues): EventIn {
     sales_end_at: fromPicker(values.sales_end_at),
     poster_url: values.poster_url.trim() || null,
     prices: Object.entries(values.prices)
+      // Цены категорий, которых нет в режиме зала (например, танцпол на хоккее), не отправляем.
+      .filter(([category]) => allowed.has(Number(category)))
       .filter(([, rub]) => typeof rub === 'number' && rub > 0)
       .map(([category, rub]) => ({
         category_id: Number(category),
@@ -135,8 +140,13 @@ export function AdminEventFormPage() {
   const saving = create.isPending || update.isPending
   const error = create.error ?? update.error ?? publish.error
 
+  const hallConfig = layout.data?.hall_configs.find(
+    (c) => c.id === hallConfigFor(form.values.kind),
+  )
+  const allowedCategories = new Set(hallConfig?.category_ids ?? [])
+
   const submit = form.onSubmit(async (values) => {
-    const data = toPayload(values)
+    const data = toPayload(values, allowedCategories)
     try {
       if (isNew) {
         const created = await create.mutateAsync({ data })
@@ -242,7 +252,9 @@ export function AdminEventFormPage() {
               Цены по категориям, ₽
             </Text>
             <Grid>
-              {layout.data?.categories.map((category) => (
+              {layout.data?.categories
+                .filter((category) => allowedCategories.has(category.id))
+                .map((category) => (
                 <Grid.Col key={category.id} span={{ base: 6, sm: 3 }}>
                   <NumberInput
                     label={
@@ -262,7 +274,7 @@ export function AdminEventFormPage() {
               ))}
             </Grid>
             <Text size="xs" c="dimmed" mt="xs">
-              Для публикации нужны цены во всех категориях.
+              {hallConfig?.name}. Для публикации нужны цены во всех категориях этого режима.
             </Text>
           </Paper>
 

@@ -5,12 +5,15 @@
  * OpenAPI spec version: dev
  */
 import type { EventKind } from './eventKind';
+import type { HallConfig } from './hallConfig';
 import type { SaleStatus } from './saleStatus';
 
 export interface EventCard {
   id: string;
   title: string;
   kind: EventKind;
+  /** Режим зала: hockey или stage (сцена) */
+  hall_config: HallConfig;
   starts_at: string;
   sales_start_at: string;
   sales_end_at: string;

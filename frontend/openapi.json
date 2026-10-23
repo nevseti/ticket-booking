@@ -1195,6 +1195,10 @@
           "kind": {
             "$ref": "#/components/schemas/EventKind"
           },
+          "hall_config": {
+            "$ref": "#/components/schemas/HallConfig",
+            "description": "Режим зала: hockey или stage (сцена)"
+          },
           "starts_at": {
             "type": "string",
             "format": "date-time",
@@ -1280,6 +1284,7 @@
           "id",
           "title",
           "kind",
+          "hall_config",
           "starts_at",
           "sales_start_at",
           "sales_end_at",
@@ -1333,6 +1338,10 @@
           "kind": {
             "$ref": "#/components/schemas/EventKind"
           },
+          "hall_config": {
+            "$ref": "#/components/schemas/HallConfig",
+            "description": "Режим зала: hockey или stage (сцена)"
+          },
           "starts_at": {
             "type": "string",
             "format": "date-time",
@@ -1379,6 +1388,7 @@
           "id",
           "title",
           "kind",
+          "hall_config",
           "starts_at",
           "sales_start_at",
           "sales_end_at",
@@ -1401,6 +1411,10 @@
           },
           "kind": {
             "$ref": "#/components/schemas/EventKind"
+          },
+          "hall_config": {
+            "$ref": "#/components/schemas/HallConfig",
+            "description": "Режим зала: hockey или stage (сцена)"
           },
           "starts_at": {
             "type": "string",
@@ -1462,6 +1476,7 @@
           "id",
           "title",
           "kind",
+          "hall_config",
           "starts_at",
           "sales_start_at",
           "sales_end_at",
@@ -1549,12 +1564,11 @@
         "type": "string",
         "enum": [
           "concert",
-          "theatre",
-          "sport",
           "show",
-          "other"
+          "sport"
         ],
-        "title": "EventKind"
+        "title": "EventKind",
+        "description": "Тип мероприятия. Ледовая арена принимает концерты, шоу и хоккей — театра нет."
       },
       "EventStatus": {
         "type": "string",
@@ -1564,6 +1578,45 @@
           "cancelled"
         ],
         "title": "EventStatus"
+      },
+      "HallConfig": {
+        "type": "string",
+        "enum": [
+          "hockey",
+          "stage"
+        ],
+        "title": "HallConfig"
+      },
+      "HallConfigOut": {
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/HallConfig"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "capacity": {
+            "type": "integer",
+            "title": "Capacity"
+          },
+          "category_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Category Ids",
+            "description": "Ценовые категории, которые есть в этом режиме"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "capacity",
+          "category_ids"
+        ],
+        "title": "HallConfigOut"
       },
       "HealthOut": {
         "properties": {
@@ -1826,6 +1879,39 @@
         ],
         "title": "RegisterIn"
       },
+      "RinkOut": {
+        "properties": {
+          "x": {
+            "type": "number",
+            "title": "X"
+          },
+          "y": {
+            "type": "number",
+            "title": "Y"
+          },
+          "width": {
+            "type": "number",
+            "title": "Width"
+          },
+          "height": {
+            "type": "number",
+            "title": "Height"
+          },
+          "radius": {
+            "type": "number",
+            "title": "Radius"
+          }
+        },
+        "type": "object",
+        "required": [
+          "x",
+          "y",
+          "width",
+          "height",
+          "radius"
+        ],
+        "title": "RinkOut"
+      },
       "Role": {
         "type": "string",
         "enum": [
@@ -1889,6 +1975,14 @@
         ],
         "title": "SeatOut"
       },
+      "SectionKind": {
+        "type": "string",
+        "enum": [
+          "seated",
+          "standing"
+        ],
+        "title": "SectionKind"
+      },
       "SectionOut": {
         "properties": {
           "id": {
@@ -1914,6 +2008,33 @@
           "label_y": {
             "type": "number",
             "title": "Label Y"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/SectionKind"
+          },
+          "configs": {
+            "items": {
+              "$ref": "#/components/schemas/HallConfig"
+            },
+            "type": "array",
+            "title": "Configs",
+            "description": "Режимы зала, в которых сектор продаётся"
+          },
+          "capacity": {
+            "type": "integer",
+            "title": "Capacity"
+          },
+          "category_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category Id",
+            "description": "Категория стоячей зоны (у сидячих — у мест)"
           }
         },
         "type": "object",
@@ -1923,7 +2044,11 @@
           "name",
           "path",
           "label_x",
-          "label_y"
+          "label_y",
+          "kind",
+          "configs",
+          "capacity",
+          "category_id"
         ],
         "title": "SectionOut"
       },
@@ -1997,6 +2122,9 @@
             "type": "integer",
             "title": "Height"
           },
+          "rink": {
+            "$ref": "#/components/schemas/RinkOut"
+          },
           "stage_path": {
             "type": "string",
             "title": "Stage Path"
@@ -2007,6 +2135,13 @@
             },
             "type": "array",
             "title": "Categories"
+          },
+          "hall_configs": {
+            "items": {
+              "$ref": "#/components/schemas/HallConfigOut"
+            },
+            "type": "array",
+            "title": "Hall Configs"
           },
           "sections": {
             "items": {
@@ -2029,13 +2164,15 @@
           "address",
           "width",
           "height",
+          "rink",
           "stage_path",
           "categories",
+          "hall_configs",
           "sections",
           "seats"
         ],
         "title": "VenueLayout",
-        "description": "Статичная схема площадки: одинакова для всех мероприятий, отлично кэшируется."
+        "description": "Статичная схема площадки: одинакова для всех мероприятий, отлично кэшируется.\n\nМеста стоячих зон в `seats` не входят — у них нет ряда и координат, только вместимость."
       }
     },
     "securitySchemes": {
