@@ -146,17 +146,17 @@ DEMO_EVENTS = [
         "Кьют-рок, гитары и песни, которые зал знает наизусть. Берите друзей — будет громко.",
     ),
     DemoEvent(
-        "Скриптонит. Праздник на улице",
+        "Noize MC. Живой звук",
         EventKind.CONCERT,
         41,
         20,
         stage_prices(17000, 11000, 7500, 8500, 5500, 3300),
-        "Живой состав, джаз-вставки и долгожданные треки. Продажи откроются через три "
+        "Живой состав, гитары и долгожданные треки. Продажи откроются через три "
         "дня — успейте в момент старта.",
         sales_in_days=3,
     ),
     DemoEvent(
-        "MAYOT. Арена-тур",
+        "Элджей. Арена-тур",
         EventKind.CONCERT,
         12,
         20,
@@ -164,15 +164,15 @@ DEMO_EVENTS = [
         "Первый большой сольник на арене: все хиты и премьера новых песен.",
     ),
     DemoEvent(
-        "Платина. Ночной сет",
+        "Cream Soda. Ночной сет",
         EventKind.CONCERT,
         19,
         21,
         stage_prices(10500, 6900, 4500, 5200, 3500, 2100),
-        "Атмосферный вечер с визуальным шоу на весь зал.",
+        "Танцевальная электроника и визуальное шоу на весь зал до глубокой ночи.",
     ),
     DemoEvent(
-        "Мукка. Акустика и электричество",
+        "Три дня дождя. Акустика и электричество",
         EventKind.CONCERT,
         34,
         19,
@@ -293,23 +293,43 @@ DEMO_POSTERS: dict[str, tuple[str, str, str]] = {
     ),
     "Дора. Большой сольный концерт": (
         "/posters/dora.webp",
-        "Фото: MONO, CC BY 3.0, Wikimedia Commons",
-        "https://commons.wikimedia.org/wiki/File:Dora_during_the_Moon_Show_in_2020.png",
+        "Фото: MONO, CC BY 3.0, Wikimedia Commons (кадр из видео, тонирование)",
+        "https://commons.wikimedia.org/wiki/File:%D0%94%D0%BE%D1%80%D0%B0_-_%D0%B1%D0%BE%D0%BB%D1%8C%D1%88%D0%B5_-_TH%C4%92_MONO_SHOW.webm",
     ),
-    "Скриптонит. Праздник на улице": (
-        "/posters/scriptonite.webp",
-        "Фото: Live Stage (YouTube channel), A. Pesotsky, CC BY 3.0, Wikimedia Commons",
-        "https://commons.wikimedia.org/wiki/File:Scriptonite.jpg",
+    "Noize MC. Живой звук": (
+        "/posters/noize-mc.webp",
+        "Фото: Kerrin Key, CC BY-SA 2.0, Wikimedia Commons",
+        "https://commons.wikimedia.org/wiki/File:Noize_MC_2020_(2).jpg",
+    ),
+    "Элджей. Арена-тур": (
+        "/posters/eldzhey.webp",
+        "Фото: Okras, CC BY-SA 4.0, Wikimedia Commons",
+        "https://commons.wikimedia.org/wiki/File:%D0%AD%D0%BB%D0%B4%D0%B6%D0%B5%D0%B9_(3)_%D0%BD%D0%B0_Big_Love_Show_2018_%D0%B2_%D0%A1%D0%9F%D0%B1.jpg",
+    ),
+    "Cream Soda. Ночной сет": (
+        "/posters/cream-soda.webp",
+        "Фото: Heyitsvad, CC BY-SA 4.0, Wikimedia Commons",
+        "https://commons.wikimedia.org/wiki/File:Cream_Soda,_2022.jpg",
+    ),
+    "Три дня дождя. Акустика и электричество": (
+        "/posters/tri-dnya-dozhdya.webp",
+        "Фото: Okras, CC BY-SA 4.0, Wikimedia Commons",
+        "https://commons.wikimedia.org/wiki/File:%D0%A2%D1%80%D0%B8_%D0%B4%D0%BD%D1%8F_%D0%B4%D0%BE%D0%B6%D0%B4%D1%8F_%D0%BD%D0%B0_VK_Fest_2025_%D0%B2_%D0%A1%D0%9F%D0%B1_(cropped).jpg",
     ),
     "INSTASAMKA. Шоу": (
         "/posters/instasamka.webp",
-        "Фото: Okras, CC BY-SA 4.0, Wikimedia Commons",
-        "https://commons.wikimedia.org/wiki/File:Instasamka_%D0%BD%D0%B0_VK_Fest_2023_%D0%B2_%D0%A1%D0%9F%D0%B1.jpg",
+        "Фото: Передача До 17 и старше, CC BY 3.0, Wikimedia Commons (кадрирование)",
+        "https://commons.wikimedia.org/wiki/File:Instasamka_performs_%22Za_dengi_da%22_(Jun_2024;_2).png",
+    ),
+    "Кишлак. Большой концерт": (
+        "/posters/kishlak.webp",
+        "Фото: JessePinkman, CC BY 4.0, Wikimedia Commons",
+        "https://commons.wikimedia.org/wiki/File:%D0%9A%D0%B8%D1%88%D0%BB%D0%B0%D0%BA_2024.jpg",
     ),
     "Макс Корж. Зимний вечер на арене": (
         "/posters/max-korzh.webp",
         "Фото: Itokyl, CC BY-SA 4.0, Wikimedia Commons",
-        "https://commons.wikimedia.org/wiki/File:Max-Korzh-2018-11-09-0011.jpg",
+        "https://commons.wikimedia.org/wiki/File:Max-Korzh-2018-11-09-0003.jpg",
     ),
 }
 
@@ -351,11 +371,26 @@ async def seed_demo_events(session: AsyncSession, now: datetime, *, reset: bool 
     return len(DEMO_EVENTS)
 
 
+# Демо-концерты, заменённые на артистов, у которых есть свободные фото: старое название → новое.
+# apply-posters переименовывает их на месте, не трогая уже купленные билеты.
+DEMO_RENAMES = {
+    "Скриптонит. Праздник на улице": "Noize MC. Живой звук",
+    "MAYOT. Арена-тур": "Элджей. Арена-тур",
+    "Платина. Ночной сет": "Cream Soda. Ночной сет",
+    "Мукка. Акустика и электричество": "Три дня дождя. Акустика и электричество",
+}
+
+
 async def apply_demo_posters(session: AsyncSession) -> int:
     """Проставить фото демо-мероприятиям по названию (без пересоздания мероприятий).
 
     Демо-мероприятиям без фото в DEMO_POSTERS обложка сбрасывается — их рисует фронтенд.
     """
+    descriptions = {demo.title: demo.description for demo in DEMO_EVENTS}
+    for old, new in DEMO_RENAMES.items():
+        await session.execute(
+            update(Event).where(Event.title == old).values(title=new, description=descriptions[new])
+        )
     updated = 0
     for demo in DEMO_EVENTS:
         url, credit, source = DEMO_POSTERS.get(demo.title, (None, None, None))
