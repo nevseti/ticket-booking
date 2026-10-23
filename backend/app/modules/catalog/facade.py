@@ -21,6 +21,7 @@ __all__ = [
     "SeatRef",
     "SectionKind",
     "SectionRef",
+    "StandingZones",
     "get_categories",
     "get_event",
     "get_events",
@@ -28,6 +29,7 @@ __all__ = [
     "get_seats",
     "get_section",
     "standing_seat_ids",
+    "standing_zones",
 ]
 
 
@@ -87,6 +89,33 @@ async def standing_seat_ids(uow: UnitOfWork) -> dict[int, frozenset[int]]:
     return {
         s.id: frozenset(s.seat_ids) for s in ref.sections.values() if s.kind == SectionKind.STANDING
     }
+
+
+@dataclass(frozen=True)
+class StandingZones:
+    """Стоячие зоны в удобном для подсчёта виде."""
+
+    zone_of: dict[int, int]  # id места → id стоячей зоны
+    capacity: dict[int, int]  # id зоны → число мест
+
+
+_zones: tuple[object, StandingZones] | None = None
+
+
+async def standing_zones(uow: UnitOfWork) -> StandingZones:
+    """То же, что standing_seat_ids, но посчитанное один раз на загруженный справочник."""
+    global _zones
+    ref = await get_reference(uow.session)
+    if _zones is None or _zones[0] is not ref:
+        zones = await standing_seat_ids(uow)
+        _zones = (
+            ref,
+            StandingZones(
+                zone_of={seat: zone for zone, seats in zones.items() for seat in seats},
+                capacity={zone: len(seats) for zone, seats in zones.items()},
+            ),
+        )
+    return _zones[1]
 
 
 async def get_events(uow: UnitOfWork, event_ids: list[uuid.UUID]) -> dict[uuid.UUID, EventInfo]:

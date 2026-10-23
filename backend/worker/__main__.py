@@ -3,6 +3,7 @@
 Задачи (асинхронно, в одном процессе):
     relay       публикует события outbox в RabbitMQ
     consumer    обрабатывает очередь уведомлений (письма, уведомления в приложении)
+    projector   обновляет модель чтения схемы зала в Redis (CQRS) по событиям booking.*
     sweeper     гасит просроченные удержания мест (раз в 15 с)
     recovery    доводит до конца «зависшие» саги оплаты (раз в минуту)
 """
@@ -21,13 +22,14 @@ from app.core.logging import configure_logging
 from app.modules.booking import facade as booking
 from app.modules.notifications.mailer import SmtpMailer
 from app.modules.orders import facade as orders
-from worker.consumer import consume_notifications
+from worker.consumer import consume_notifications, consume_projection
 from worker.rabbit import connect, declare_topology
 from worker.relay import RabbitPublisher, publish_batch
 
 log = structlog.get_logger()
 
-RELAY_IDLE_SECONDS = 0.5
+# Пауза, когда событий нет. Задаёт задержку обновления схемы зала у зрителей.
+RELAY_IDLE_SECONDS = 0.25
 
 
 async def relay_loop(stop: asyncio.Event, publisher: RabbitPublisher) -> None:
@@ -87,6 +89,7 @@ async def main() -> None:
     await declare_topology(connection)
     publish_channel = await connection.channel(publisher_confirms=True)
     await consume_notifications(connection, SmtpMailer())
+    await consume_projection(connection, "seatmap", booking.project_seatmap_event)
 
     tasks = [
         asyncio.create_task(relay_loop(stop, RabbitPublisher(publish_channel))),

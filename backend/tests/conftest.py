@@ -7,6 +7,8 @@ TEST_DATABASE_URL = os.environ.get(
     "TEST_DATABASE_URL", "postgresql+asyncpg://tickets:tickets@localhost:5433/tickets_test"
 )
 os.environ["DATABASE_URL"] = TEST_DATABASE_URL
+# Отдельная база Redis: тесты очищают её и не трогают модель чтения dev-окружения.
+os.environ["REDIS_URL"] = os.environ.get("TEST_REDIS_URL", "redis://localhost:6379/15")
 
 import asyncio  # noqa: E402
 from collections.abc import AsyncIterator, Callable, Coroutine  # noqa: E402
@@ -24,6 +26,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine  # noqa: E4
 from sqlalchemy.pool import NullPool  # noqa: E402
 
 from app.core.db import MODULE_SCHEMAS, engine  # noqa: E402
+from app.core.redis import redis_client  # noqa: E402
 from app.db_models import Base  # noqa: E402
 from app.main import app  # noqa: E402
 from app.modules.catalog.seed import seed_venue  # noqa: E402
@@ -101,6 +104,7 @@ async def clean_tables() -> AsyncIterator[None]:
     if tables:
         async with engine.begin() as conn:
             await conn.execute(text(f"TRUNCATE {', '.join(tables)} RESTART IDENTITY CASCADE"))
+    await redis_client.flushdb()
     yield
 
 

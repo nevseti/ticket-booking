@@ -40,9 +40,11 @@ class ZoneAvailability(BaseModel):
 
 
 class SeatmapStatus(BaseModel):
-    """Занятость зала. Временная версия — читается из PostgreSQL; на этапе 7 её заменит
-    модель чтения в Redis с обновлением в реальном времени (CQRS + SSE)."""
+    """Занятость зала из модели чтения в Redis (CQRS). Изменения приходят по SSE
+    (`/seatmap/stream`) с версиями: изменение с версией version + 1 применяется к этому
+    снимку, при пропуске версии снимок нужно перечитать."""
 
+    version: int = Field(description="Версия снимка; 0 — снимок без версии (прямо из БД)")
     held: list[int] = Field(description="Сидячие места, удержанные сейчас")
     sold: list[int] = Field(description="Проданные сидячие места")
     zones: list[ZoneAvailability]

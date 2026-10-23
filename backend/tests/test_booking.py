@@ -6,6 +6,7 @@
 """
 
 import asyncio
+import json
 import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -16,8 +17,10 @@ from sqlalchemy import text
 
 from app.core.db import UnitOfWork
 from app.core.errors import AppError
+from app.modules.booking import facade as booking
 from app.modules.booking.service import BookingService
 from app.modules.identity.security import create_access_token
+from worker.relay import publish_batch
 
 STAGE_PRICES = [
     {"category_id": c, "price_kopecks": p}
@@ -74,6 +77,19 @@ async def concert(client: AsyncClient, admin_headers: dict[str, str]) -> str:
     return await make_event(client, admin_headers)
 
 
+class ProjectingPublisher:
+    """«Брокер» без брокера: события сразу уходят в проекцию схемы зала."""
+
+    async def publish(self, routing_key: str, body: bytes, message_id: str) -> None:
+        await booking.project_seatmap_event(routing_key, json.loads(body)["payload"])
+
+
+async def sync_seatmap() -> None:
+    """Прогнать накопившиеся события через модель чтения — в жизни это делает воркер."""
+    while await publish_batch(ProjectingPublisher()):
+        pass
+
+
 async def hold(client: AsyncClient, event_id: str, seat_id: int, headers: dict[str, str]):
     return await client.post(
         f"/api/events/{event_id}/holds", json={"seat_id": seat_id}, headers=headers
@@ -128,6 +144,7 @@ async def test_concurrent_zone_never_oversells(
 
     taken = sum(await asyncio.gather(*(attempt() for _ in range(90))))
 
+    await sync_seatmap()
     status = (await client.get(f"/api/events/{concert}/seatmap/status")).json()
     fan = next(z for z in status["zones"] if z["section_id"] == zone["id"])
     assert taken == fan["capacity"] - fan["available"]
@@ -288,6 +305,7 @@ async def test_standing_place_is_bought_by_quantity(
     assert mine["total_kopecks"] == 3 * 600_000
     assert mine["limit"] == 6 and mine["expires_at"] is not None
 
+    await sync_seatmap()
     status = (await client.get(f"/api/events/{concert}/seatmap/status")).json()
     dance = next(z for z in status["zones"] if z["section_id"] == zone["id"])
     assert dance["available"] == dance["capacity"] - 3
@@ -301,11 +319,13 @@ async def test_seatmap_status_and_release_all(
     for seat_id in seats:
         await hold(client, concert, seat_id, me)
 
+    await sync_seatmap()
     status = (await client.get(f"/api/events/{concert}/seatmap/status")).json()
     assert set(seats) <= set(status["held"])
 
     resp = await client.delete(f"/api/events/{concert}/holds/my", headers=me)
     assert resp.status_code == 204
+    await sync_seatmap()
     status = (await client.get(f"/api/events/{concert}/seatmap/status")).json()
     assert not set(seats) & set(status["held"])
 

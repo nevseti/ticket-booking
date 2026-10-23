@@ -33,4 +33,5 @@ ENV APP_VERSION=${APP_VERSION} \
 
 EXPOSE 8000
 # Число процессов uvicorn берётся из WEB_CONCURRENCY.
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips", "*"]
+# --timeout-graceful-shutdown: открытые SSE-потоки схемы зала не держат остановку дольше 5 с.
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips", "*", "--timeout-graceful-shutdown", "5"]

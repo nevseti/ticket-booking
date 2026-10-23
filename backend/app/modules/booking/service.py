@@ -5,7 +5,7 @@ from app.core.config import settings
 from app.core.db import UnitOfWork
 from app.core.errors import AppError, ConflictError, NotFoundError
 from app.modules.booking.repository import HoldRepository, HoldRow
-from app.modules.booking.schemas import HoldOut, MyHoldsOut, SeatmapStatus, ZoneAvailability
+from app.modules.booking.schemas import HoldOut, MyHoldsOut
 from app.modules.catalog import facade as catalog
 from app.shared.outbox import add_event
 
@@ -68,6 +68,7 @@ class HoldNotFoundError(NotFoundError):
 SEATS_HELD = "booking.seats_held"
 SEATS_RELEASED = "booking.seats_released"
 HOLDS_EXPIRED = "booking.holds_expired"
+SEATS_SOLD = "booking.seats_sold"
 
 
 def emit_holds(uow: UnitOfWork, event_type: str, event_id: uuid.UUID, holds: list[HoldRow]) -> None:
@@ -209,22 +210,4 @@ class BookingService:
             total_kopecks=sum(i.price_kopecks for i in items),
             expires_at=min((i.expires_at for i in items), default=None),
             limit=settings.max_holds_per_event,
-        )
-
-    async def seatmap_status(self, event_id: uuid.UUID) -> SeatmapStatus:
-        held, sold = await self._holds.taken_seats(event_id)
-        zones = await catalog.standing_seat_ids(self._uow)
-        in_zones = frozenset().union(*zones.values()) if zones else frozenset()
-        taken = set(held) | set(sold)
-        return SeatmapStatus(
-            held=[s for s in held if s not in in_zones],
-            sold=[s for s in sold if s not in in_zones],
-            zones=[
-                ZoneAvailability(
-                    section_id=section_id,
-                    capacity=len(seat_ids),
-                    available=len(seat_ids - taken),
-                )
-                for section_id, seat_ids in zones.items()
-            ],
         )

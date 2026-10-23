@@ -13,6 +13,7 @@ from app.core.logging import configure_logging
 from app.core.middleware import RequestIdMiddleware
 from app.core.redis import redis_client
 from app.modules.booking import api as booking_api
+from app.modules.booking.live import hub as seatmap_hub
 from app.modules.catalog import api as catalog_api
 from app.modules.identity import api as identity_api
 from app.modules.notifications import api as notifications_api
@@ -30,6 +31,7 @@ def operation_id(route: APIRoute) -> str:
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     log.info("api_started", version=settings.app_version, env=settings.env)
     yield
+    await seatmap_hub.close()
     await redis_client.aclose()
     await engine.dispose()
     log.info("api_stopped")

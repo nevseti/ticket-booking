@@ -1625,7 +1625,7 @@
           "booking"
         ],
         "summary": "Get Seatmap Status",
-        "description": "Занятость зала: удержанные и проданные места, остаток в стоячих зонах.",
+        "description": "Занятость зала: удержанные и проданные места, остаток в стоячих зонах.\nЧитается из модели чтения в Redis (CQRS), а не из таблиц бронирования.",
         "operationId": "get_seatmap_status",
         "parameters": [
           {
@@ -1652,6 +1652,70 @@
           },
           "422": {
             "description": "Ошибка валидации",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/events/{event_id}/seatmap/stream": {
+      "get": {
+        "tags": [
+          "booking"
+        ],
+        "summary": "Stream Seatmap",
+        "description": "Изменения занятости зала в реальном времени (SSE).",
+        "operationId": "stream_seatmap",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Event Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Поток Server-Sent Events. `event: delta` — изменение занятости `{v, seats: {id: h|s|f}, zones: {id: занято}}`; `event: resync` — перечитать снимок `/seatmap/status`. Раз в 15 с — комментарий-пинг.",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Ошибка валидации",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Не найдено",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -3443,6 +3507,11 @@
       },
       "SeatmapStatus": {
         "properties": {
+          "version": {
+            "type": "integer",
+            "title": "Version",
+            "description": "Версия снимка; 0 — снимок без версии (прямо из БД)"
+          },
           "held": {
             "items": {
               "type": "integer"
@@ -3469,12 +3538,13 @@
         },
         "type": "object",
         "required": [
+          "version",
           "held",
           "sold",
           "zones"
         ],
         "title": "SeatmapStatus",
-        "description": "Занятость зала. Временная версия — читается из PostgreSQL; на этапе 7 её заменит\nмодель чтения в Redis с обновлением в реальном времени (CQRS + SSE)."
+        "description": "Занятость зала из модели чтения в Redis (CQRS). Изменения приходят по SSE\n(`/seatmap/stream`) с версиями: изменение с версией version + 1 применяется к этому\nснимку, при пропуске версии снимок нужно перечитать."
       },
       "SectionKind": {
         "type": "string",

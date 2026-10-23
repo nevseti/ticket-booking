@@ -224,6 +224,12 @@ export function EventPage() {
                     <span className={`${classes.dot} ${classes.dotMine}`} />
                     <Text size="sm">Ваш выбор</Text>
                   </Group>
+                  <Group gap={6} ml="auto" title="Занятость мест обновляется без перезагрузки">
+                    <span className={classes.liveDot} data-live={booking.live || undefined} />
+                    <Text size="sm" c="dimmed">
+                      {booking.live ? 'В реальном времени' : 'Обновление раз в 5 с'}
+                    </Text>
+                  </Group>
                 </>
               )}
             </Group>
