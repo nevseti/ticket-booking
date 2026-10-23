@@ -202,8 +202,23 @@ class CheckoutSaga:
                 uow, checkout.user_id, checkout.event_id, list(checkout.hold_ids), order.id
             )
             uow.session.add(order)
+            tickets_payload = []
             for item in checkout.items:
                 ticket_id = uuid.uuid4()
+                code = make_code(ticket_id)
+                tickets_payload.append(
+                    {
+                        "seat": item["section_name"]
+                        + (
+                            ", стоячее место"
+                            if item["standing"]
+                            else f", ряд {item['row']}, место {item['number']}"
+                        ),
+                        "category": item["category_name"],
+                        "price_kopecks": item["price_kopecks"],
+                        "code": code,
+                    }
+                )
                 uow.session.add(
                     Ticket(
                         id=ticket_id,
@@ -216,11 +231,14 @@ class CheckoutSaga:
                         standing=item["standing"],
                         category_name=item["category_name"],
                         price_kopecks=item["price_kopecks"],
-                        code=make_code(ticket_id),
+                        code=code,
                     )
                 )
             checkout.state = CheckoutState.COMPLETED
             checkout.order_id = order.id
+            event = await catalog.get_event(uow, checkout.event_id)
+            # Событие несёт всё, что нужно для письма (Event-Carried State Transfer):
+            # модулю уведомлений не нужно синхронно обращаться к заказам.
             add_event(
                 uow.session,
                 ORDER_PAID,
@@ -229,8 +247,10 @@ class CheckoutSaga:
                     "order_id": str(order.id),
                     "user_id": str(checkout.user_id),
                     "event_id": str(checkout.event_id),
+                    "event_title": event.title if event else "",
+                    "event_starts_at": event.starts_at.isoformat() if event else None,
                     "total_kopecks": checkout.amount_kopecks,
-                    "tickets": len(checkout.items),
+                    "tickets": tickets_payload,
                 },
             )
             await uow.commit()

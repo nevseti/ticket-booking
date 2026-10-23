@@ -34,6 +34,17 @@ class Settings(BaseSettings):
     fake_payment_latency_ms: int = 600  # «время ответа банка»
     fake_payment_decline_rate: float = 0.0  # доля случайных отказов (для нагрузочного теста)
 
+    # Почта (в разработке и на демо — Mailpit: письма никуда не уходят, видны в его веб-UI)
+    smtp_host: str = "localhost"
+    smtp_port: int = 1025
+    mail_from: str = "Билеты <tickets@nevseti.duckdns.org>"
+    public_url: str = "http://127.0.0.1:5173"  # для ссылок в письмах
+
+    # Фоновый воркер
+    hold_sweep_interval_seconds: int = 15
+    saga_recovery_interval_seconds: int = 60
+    saga_stuck_after_seconds: int = 120
+
     log_level: str = "INFO"
     log_json: bool = False
 

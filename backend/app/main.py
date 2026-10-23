@@ -15,6 +15,7 @@ from app.core.redis import redis_client
 from app.modules.booking import api as booking_api
 from app.modules.catalog import api as catalog_api
 from app.modules.identity import api as identity_api
+from app.modules.notifications import api as notifications_api
 from app.modules.orders import api as orders_api
 
 log = structlog.get_logger()
@@ -54,6 +55,7 @@ def create_app() -> FastAPI:
     app.include_router(catalog_api.admin_router, prefix="/api")
     app.include_router(booking_api.router, prefix="/api")
     app.include_router(orders_api.router, prefix="/api")
+    app.include_router(notifications_api.router, prefix="/api")
     return app
 
 
