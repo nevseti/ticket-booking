@@ -20,6 +20,10 @@ x-backend: &backend
     # Пул соединений с БД на процесс: держим суммарно меньше max_connections PostgreSQL.
     DB_POOL_SIZE: "5"
     DB_MAX_OVERFLOW: "5"
+    # Почта: Mailpit — письма не уходят наружу, видны в его веб-интерфейсе (/mailpit/).
+    SMTP_HOST: mailpit
+    SMTP_PORT: "1025"
+    PUBLIC_URL: https://${DOMAIN}
   restart: unless-stopped
   mem_limit: 192m
   logging: &logging
@@ -129,6 +133,17 @@ services:
       interval: 5s
       timeout: 3s
       retries: 20
+    restart: unless-stopped
+    logging: *logging
+
+  mailpit:
+    image: axllent/mailpit:latest
+    environment:
+      MP_WEBROOT: /mailpit/
+      # Логин и пароль веб-интерфейса: MAILPIT_UI_AUTH=user:password в .env
+      MP_UI_AUTH: ${MAILPIT_UI_AUTH:?Задайте MAILPIT_UI_AUTH=user:password в .env}
+      MP_MAX_MESSAGES: "500"
+    mem_limit: 64m
     restart: unless-stopped
     logging: *logging
 

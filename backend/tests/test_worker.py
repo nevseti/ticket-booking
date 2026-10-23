@@ -200,7 +200,7 @@ async def test_rabbitmq_roundtrip() -> None:
     import aio_pika
 
     from app.core.config import settings
-    from worker.rabbit import declare_topology
+    from worker.rabbit import EXCHANGE, declare_topology
     from worker.relay import RabbitPublisher
 
     try:
@@ -208,17 +208,20 @@ async def test_rabbitmq_roundtrip() -> None:
     except Exception:
         pytest.skip("RabbitMQ недоступен")
     async with connection:
-        await declare_topology(connection)
+        exchange = await declare_topology(connection)
         channel = await connection.channel(publisher_confirms=True)
-        queue = await channel.get_queue("notifications")
-        await queue.purge()
+        # Своя временная очередь на тот же exchange: тест не зависит от запущенного воркера,
+        # который мог бы первым забрать сообщение из общей очереди notifications.
+        probe = await channel.declare_queue(exclusive=True, auto_delete=True)
+        await probe.bind(EXCHANGE, "orders.checkout_failed")
         message_id = str(uuid.uuid4())
 
         await RabbitPublisher(channel).publish(
             "orders.checkout_failed", b'{"payload": {}}', message_id
         )
 
-        message = await queue.get(timeout=5)
+        message = await probe.get(timeout=5)
         assert message.message_id == message_id
         assert message.routing_key == "orders.checkout_failed"
+        assert exchange.name == EXCHANGE
         await message.ack()

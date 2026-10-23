@@ -26,6 +26,8 @@ export * from './holdZoneIn';
 export * from './listEventsParams';
 export * from './loginIn';
 export * from './myHoldsOut';
+export * from './notificationOut';
+export * from './notificationsOut';
 export * from './orderDetail';
 export * from './orderSummary';
 export * from './pageAdminEvent';
