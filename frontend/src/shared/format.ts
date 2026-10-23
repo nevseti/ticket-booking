@@ -53,3 +53,6 @@ export const SALE_STATUS: Record<SaleStatus, { label: string; color: string }> =
   cancelled: { label: 'Отменено', color: 'red' },
   draft: { label: 'Черновик', color: 'yellow' },
 }
+
+/** Площадка одна (требование MVP), поэтому в карточках её название — константа. */
+export const VENUE_NAME = 'Арена «Северная»'
