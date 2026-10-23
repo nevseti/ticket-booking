@@ -42,11 +42,11 @@ function hash(value: string): number {
 
 function headlineSize(text: string, variant: 'card' | 'banner'): number {
   // Размер по общей длине, но так, чтобы самое длинное слово влезло в ширину карточки
-  // (у Unbounded в верхнем регистре буква ≈ 0.9 em).
+  // (у Unbounded в верхнем регистре широкие буквы вроде Щ и Ц — около 1 em).
   const n = text.length
   const byLength = n <= 9 ? 34 : n <= 14 ? 28 : n <= 20 ? 22 : n <= 28 ? 18 : 15
   const longestWord = Math.max(...text.split(/\s+/).map((w) => w.length))
-  const byWord = Math.floor(250 / (longestWord * 0.9))
+  const byWord = Math.floor(236 / (longestWord * 1.05))
   const size = Math.max(13, Math.min(byLength, byWord))
   return variant === 'banner' ? Math.round(size * 1.35) : size
 }
@@ -149,13 +149,22 @@ export function EventPoster({
   const seed = hash(seedKey ?? title)
   const { headline, subtitle } = splitTitle(title)
 
+  const text = variant === 'card' && (
+    <div className={classes.text}>
+      {subtitle && <div className={classes.subtitle}>{subtitle}</div>}
+      <div className={classes.headline} style={{ fontSize: headlineSize(headline, variant) }}>
+        {headline}
+      </div>
+    </div>
+  )
+
   if (posterUrl) {
+    // Фото со сцены + затемнение снизу, чтобы имя артиста читалось на любом снимке.
     return (
-      <Box
-        h={height}
-        className={classes.poster}
-        style={{ background: `center / cover no-repeat url("${posterUrl}"), #222` }}
-      />
+      <Box h={height} className={classes.poster} style={{ background: '#1a1b1e' }}>
+        <img src={posterUrl} alt="" loading="lazy" className={classes.photo} />
+        {text}
+      </Box>
     )
   }
 
@@ -179,14 +188,7 @@ export function EventPoster({
         <rect width="400" height="240" filter={`url(#${id}-grain)`} opacity="0.18" />
       </svg>
 
-      {variant === 'card' && (
-        <div className={classes.text}>
-          {subtitle && <div className={classes.subtitle}>{subtitle}</div>}
-          <div className={classes.headline} style={{ fontSize: headlineSize(headline, variant) }}>
-            {headline}
-          </div>
-        </div>
-      )}
+      {text}
     </Box>
   )
 }

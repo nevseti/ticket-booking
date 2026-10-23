@@ -47,6 +47,8 @@ interface FormValues {
   sales_start_at: string | null
   sales_end_at: string | null
   poster_url: string
+  poster_credit: string
+  poster_source: string
   prices: Record<string, number | string>
 }
 
@@ -63,6 +65,8 @@ function toFormValues(event: AdminEvent): FormValues {
     sales_start_at: toPicker(event.sales_start_at),
     sales_end_at: toPicker(event.sales_end_at),
     poster_url: event.poster_url ?? '',
+    poster_credit: event.poster_credit ?? '',
+    poster_source: event.poster_source ?? '',
     prices: Object.fromEntries(event.prices.map((p) => [p.category_id, p.price_kopecks / 100])),
   }
 }
@@ -79,6 +83,8 @@ function toPayload(values: FormValues, allowed: Set<number>): EventIn {
     sales_start_at: fromPicker(values.sales_start_at) ?? '',
     sales_end_at: fromPicker(values.sales_end_at),
     poster_url: values.poster_url.trim() || null,
+    poster_credit: values.poster_credit.trim() || null,
+    poster_source: values.poster_source.trim() || null,
     prices: Object.entries(values.prices)
       // Цены категорий, которых нет в режиме зала (например, танцпол на хоккее), не отправляем.
       .filter(([category]) => allowed.has(Number(category)))
@@ -118,6 +124,8 @@ export function AdminEventFormPage() {
       sales_start_at: null,
       sales_end_at: null,
       poster_url: '',
+      poster_credit: '',
+      poster_source: '',
       prices: {},
     },
     validate: {
@@ -221,10 +229,27 @@ export function AdminEventFormPage() {
               <Textarea label="Описание" autosize minRows={3} {...form.getInputProps('description')} />
               <TextInput
                 label="Ссылка на постер"
-                description="Необязательно: без постера карточка оформляется градиентом"
+                description="Ссылка https://… или путь на сайте /posters/… Без постера — генерируемая афиша"
                 placeholder="https://..."
                 {...form.getInputProps('poster_url')}
               />
+              <Grid>
+                <Grid.Col span={{ base: 12, sm: 6 }}>
+                  <TextInput
+                    label="Автор фото и лицензия"
+                    description="Для фото со свободной лицензией (CC BY, CC BY-SA)"
+                    placeholder="Фото: Автор, CC BY-SA 4.0, Wikimedia Commons"
+                    {...form.getInputProps('poster_credit')}
+                  />
+                </Grid.Col>
+                <Grid.Col span={{ base: 12, sm: 6 }}>
+                  <TextInput
+                    label="Страница фото"
+                    placeholder="https://commons.wikimedia.org/wiki/File:..."
+                    {...form.getInputProps('poster_source')}
+                  />
+                </Grid.Col>
+              </Grid>
             </Stack>
           </Paper>
 

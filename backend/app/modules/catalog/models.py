@@ -128,6 +128,9 @@ class Event(Base):
     sales_start_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     sales_end_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     poster_url: Mapped[str | None] = mapped_column(String(500))
+    # Атрибуция фото (для снимков со свободной лицензией: автор, лицензия, источник)
+    poster_credit: Mapped[str | None] = mapped_column(String(300))
+    poster_source: Mapped[str | None] = mapped_column(String(500))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()

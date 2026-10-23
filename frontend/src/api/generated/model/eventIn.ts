@@ -20,6 +20,11 @@ export interface EventIn {
   sales_start_at: string;
   /** По умолчанию — момент начала мероприятия */
   sales_end_at?: string | null;
+  /** Ссылка на картинку (http/https) или путь на сайте (/posters/...) */
   poster_url?: string | null;
+  /** Автор фото и лицензия */
+  poster_credit?: string | null;
+  /** Страница фото */
+  poster_source?: string | null;
   prices?: PriceIn[];
 }

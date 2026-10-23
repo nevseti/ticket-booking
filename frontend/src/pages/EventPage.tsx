@@ -100,6 +100,16 @@ function Hero({ event }: { event: EventDetail }) {
           </Group>
         </Group>
       </Stack>
+      {event.poster_credit && (
+        <a
+          className={classes.credit}
+          href={event.poster_source ?? undefined}
+          target="_blank"
+          rel="noreferrer"
+        >
+          {event.poster_credit}
+        </a>
+      )}
     </Paper>
   )
 }
