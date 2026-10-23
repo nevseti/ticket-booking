@@ -223,6 +223,7 @@ export function EventPage() {
           <Grid.Col span={{ base: 12, md: 4 }}>
             {user ? (
               <BookingPanel
+                eventId={eventId}
                 my={booking.my}
                 categories={categories}
                 busy={booking.busy}

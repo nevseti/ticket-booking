@@ -8,6 +8,7 @@
 export * from './adminEvent';
 export * from './adminListEventsParams';
 export * from './categoryOut';
+export * from './checkoutHeaders';
 export * from './checkoutIn';
 export * from './checkoutOut';
 export * from './checkoutState';

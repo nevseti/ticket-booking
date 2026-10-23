@@ -24,6 +24,7 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  CheckoutHeaders,
   CheckoutIn,
   CheckoutOut,
   OrderDetail,
@@ -69,7 +70,8 @@ export const getCheckoutUrl = () => {
  * order_id или failed с причиной — при отказе банка места освобождаются.
  * @summary Checkout
  */
-export const checkout = async (checkoutIn: CheckoutIn, options?: Parameters<typeof customFetch>[1]): Promise<CheckoutOut> => {
+export const checkout = async (checkoutIn: CheckoutIn,
+    headers: CheckoutHeaders, options?: Parameters<typeof customFetch>[1]): Promise<CheckoutOut> => {
 
     const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
     if (!h) return {};
@@ -89,7 +91,7 @@ return customFetch<CheckoutOut>(getCheckoutUrl(),
   {
     ...options,
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    headers: { 'Content-Type': 'application/json',...headers, ...getHeaders(options?.headers) },
     body: JSON.stringify(checkoutIn)
   }
 );}
@@ -115,9 +117,9 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof checkout>>, CheckoutMutationVariables> = (props) => {
-          const {data} = props ?? {};
+          const {data,headers} = props ?? {};
 
-          return  checkout(data,requestOptions)
+          return  checkout(data,headers,requestOptions)
         }
 
 
@@ -130,7 +132,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type CheckoutMutationResult = NonNullable<Awaited<ReturnType<typeof checkout>>>
     export type CheckoutMutationBody = BodyType<CheckoutIn>
     export type CheckoutMutationError = ErrorType<Problem>
-    export type CheckoutMutationVariables = {data: BodyType<CheckoutIn>}
+    export type CheckoutMutationVariables = {data: BodyType<CheckoutIn>;headers: CheckoutHeaders}
 
     /**
  * @summary Checkout

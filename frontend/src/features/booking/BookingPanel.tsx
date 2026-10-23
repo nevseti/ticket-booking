@@ -13,6 +13,7 @@ import {
 } from '@mantine/core'
 import { IconClock, IconTicket, IconTrash, IconX } from '@tabler/icons-react'
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router'
 
 import type { CategoryOut, HoldOut, MyHoldsOut } from '../../api/generated/model'
 import { formatPrice } from '../../shared/format'
@@ -100,6 +101,7 @@ function HoldTimer({ expiresAt, onExpired }: { expiresAt: string; onExpired: () 
 }
 
 export function BookingPanel({
+  eventId,
   my,
   categories,
   busy,
@@ -107,6 +109,7 @@ export function BookingPanel({
   onReleaseAll,
   onExpired,
 }: {
+  eventId: string
   my: MyHoldsOut | undefined
   categories: Map<number, CategoryOut>
   busy: boolean
@@ -195,11 +198,9 @@ export function BookingPanel({
                 {formatPrice(my?.total_kopecks ?? 0)}
               </Text>
             </Group>
-            <Tooltip label="Оплата появится на следующем этапе разработки">
-              <Button size="md" fullWidth disabled>
-                Перейти к оплате
-              </Button>
-            </Tooltip>
+            <Button size="md" fullWidth component={Link} to={`/checkout/${eventId}`}>
+              Перейти к оплате
+            </Button>
             <Button
               variant="subtle"
               color="gray"

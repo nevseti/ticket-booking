@@ -1,5 +1,5 @@
 import { Avatar, Button, Menu, Skeleton, UnstyledButton } from '@mantine/core'
-import { IconLogout, IconUser } from '@tabler/icons-react'
+import { IconLogout, IconTicket, IconUser } from '@tabler/icons-react'
 import { Link, useLocation, useNavigate } from 'react-router'
 
 import { useCurrentUser, useSignOut } from './useCurrentUser'
@@ -40,6 +40,9 @@ export function UserMenu() {
       </Menu.Target>
       <Menu.Dropdown>
         <Menu.Label>{user.email}</Menu.Label>
+        <Menu.Item component={Link} to="/orders" leftSection={<IconTicket size={16} />}>
+          Мои заказы
+        </Menu.Item>
         <Menu.Item component={Link} to="/profile" leftSection={<IconUser size={16} />}>
           Профиль
         </Menu.Item>
