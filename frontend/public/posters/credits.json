@@ -12,27 +12,53 @@
     "title": "File:OG Buda (2021).png"
   },
   "dora": {
-    "author": "https://www.youtube.com/channel/UCp79XpxRIcHh2DhSSsO45oQ MONO",
+    "author": "MONO",
     "license": "CC BY 3.0",
-    "source": "https://commons.wikimedia.org/wiki/File:Dora_during_the_Moon_Show_in_2020.png",
-    "title": "File:Dora during the Moon Show in 2020.png"
-  },
-  "scriptonite": {
-    "author": "Live Stage (YouTube channel), A. Pesotsky",
-    "license": "CC BY 3.0",
-    "source": "https://commons.wikimedia.org/wiki/File:Scriptonite.jpg",
-    "title": "File:Scriptonite.jpg"
+    "source": "https://commons.wikimedia.org/wiki/File:%D0%94%D0%BE%D1%80%D0%B0_-_%D0%B1%D0%BE%D0%BB%D1%8C%D1%88%D0%B5_-_TH%C4%92_MONO_SHOW.webm",
+    "title": "File:Дора - больше - THĒ MONO SHOW.webm",
+    "changes": "кадр из видео, тонирование"
   },
   "instasamka": {
-    "author": "Okras",
-    "license": "CC BY-SA 4.0",
-    "source": "https://commons.wikimedia.org/wiki/File:Instasamka_%D0%BD%D0%B0_VK_Fest_2023_%D0%B2_%D0%A1%D0%9F%D0%B1.jpg",
-    "title": "File:Instasamka на VK Fest 2023 в СПб.jpg"
+    "author": "Передача До 17 и старше",
+    "license": "CC BY 3.0",
+    "source": "https://commons.wikimedia.org/wiki/File:Instasamka_performs_%22Za_dengi_da%22_(Jun_2024;_2).png",
+    "title": "File:Instasamka performs \"Za dengi da\" (Jun 2024; 2).png",
+    "changes": "кадрирование"
   },
   "max-korzh": {
     "author": "Itokyl",
     "license": "CC BY-SA 4.0",
-    "source": "https://commons.wikimedia.org/wiki/File:Max-Korzh-2018-11-09-0011.jpg",
-    "title": "File:Max-Korzh-2018-11-09-0011.jpg"
+    "source": "https://commons.wikimedia.org/wiki/File:Max-Korzh-2018-11-09-0003.jpg",
+    "title": "File:Max-Korzh-2018-11-09-0003.jpg"
+  },
+  "kishlak": {
+    "author": "JessePinkman",
+    "license": "CC BY 4.0",
+    "source": "https://commons.wikimedia.org/wiki/File:%D0%9A%D0%B8%D1%88%D0%BB%D0%B0%D0%BA_2024.jpg",
+    "title": "File:Кишлак 2024.jpg"
+  },
+  "eldzhey": {
+    "author": "Okras",
+    "license": "CC BY-SA 4.0",
+    "source": "https://commons.wikimedia.org/wiki/File:%D0%AD%D0%BB%D0%B4%D0%B6%D0%B5%D0%B9_(3)_%D0%BD%D0%B0_Big_Love_Show_2018_%D0%B2_%D0%A1%D0%9F%D0%B1.jpg",
+    "title": "File:Элджей (3) на Big Love Show 2018 в СПб.jpg"
+  },
+  "cream-soda": {
+    "author": "Heyitsvad",
+    "license": "CC BY-SA 4.0",
+    "source": "https://commons.wikimedia.org/wiki/File:Cream_Soda,_2022.jpg",
+    "title": "File:Cream Soda, 2022.jpg"
+  },
+  "tri-dnya-dozhdya": {
+    "author": "Okras",
+    "license": "CC BY-SA 4.0",
+    "source": "https://commons.wikimedia.org/wiki/File:%D0%A2%D1%80%D0%B8_%D0%B4%D0%BD%D1%8F_%D0%B4%D0%BE%D0%B6%D0%B4%D1%8F_%D0%BD%D0%B0_VK_Fest_2025_%D0%B2_%D0%A1%D0%9F%D0%B1_(cropped).jpg",
+    "title": "File:Три дня дождя на VK Fest 2025 в СПб (cropped).jpg"
+  },
+  "noize-mc": {
+    "author": "Kerrin Key",
+    "license": "CC BY-SA 2.0",
+    "source": "https://commons.wikimedia.org/wiki/File:Noize_MC_2020_(2).jpg",
+    "title": "File:Noize MC 2020 (2).jpg"
   }
 }
