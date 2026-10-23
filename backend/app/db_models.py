@@ -5,7 +5,9 @@ Alembic должен видеть полную метаданную, чтобы 
 """
 
 from app.core.db import Base
+from app.modules.booking import models as booking_models
 from app.modules.catalog import models as catalog_models
 from app.modules.identity import models as identity_models
+from app.shared import outbox
 
-__all__ = ["Base", "catalog_models", "identity_models"]
+__all__ = ["Base", "booking_models", "catalog_models", "identity_models", "outbox"]

@@ -1177,6 +1177,496 @@
           }
         }
       }
+    },
+    "/api/events/{event_id}/holds": {
+      "post": {
+        "tags": [
+          "booking"
+        ],
+        "summary": "Hold Seat",
+        "description": "Удержать место на 10 минут. 409 SEAT_UNAVAILABLE — место уже занял кто-то другой.",
+        "operationId": "hold_seat",
+        "security": [
+          {
+            "APIKeyCookie": []
+          },
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Event Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HoldSeatIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HoldOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Ошибка валидации",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Требуется вход",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Не найдено",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Конфликт",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/events/{event_id}/holds/zone": {
+      "post": {
+        "tags": [
+          "booking"
+        ],
+        "summary": "Hold Zone",
+        "description": "Удержать билеты в стоячую зону (Фан-зона, Танцпол) — по количеству.",
+        "operationId": "hold_zone",
+        "security": [
+          {
+            "APIKeyCookie": []
+          },
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Event Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HoldZoneIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/HoldOut"
+                  },
+                  "title": "Response Hold Zone"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Ошибка валидации",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Требуется вход",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Не найдено",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Конфликт",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/events/{event_id}/holds/my": {
+      "get": {
+        "tags": [
+          "booking"
+        ],
+        "summary": "My Holds",
+        "operationId": "my_holds",
+        "security": [
+          {
+            "APIKeyCookie": []
+          },
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Event Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyHoldsOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Ошибка валидации",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Требуется вход",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "booking"
+        ],
+        "summary": "Release My Holds",
+        "description": "Отказаться от всех своих мест на мероприятие.",
+        "operationId": "release_my_holds",
+        "security": [
+          {
+            "APIKeyCookie": []
+          },
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Event Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Ошибка валидации",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Требуется вход",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/holds/{hold_id}": {
+      "delete": {
+        "tags": [
+          "booking"
+        ],
+        "summary": "Release Hold",
+        "operationId": "release_hold",
+        "security": [
+          {
+            "APIKeyCookie": []
+          },
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "hold_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Hold Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Ошибка валидации",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Требуется вход",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Не найдено",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/events/{event_id}/seatmap/status": {
+      "get": {
+        "tags": [
+          "booking"
+        ],
+        "summary": "Get Seatmap Status",
+        "description": "Занятость зала: удержанные и проданные места, остаток в стоячих зонах.",
+        "operationId": "get_seatmap_status",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Event Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SeatmapStatus"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Ошибка валидации",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1642,6 +2132,115 @@
         ],
         "title": "HealthOut"
       },
+      "HoldOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "seat_id": {
+            "type": "integer",
+            "title": "Seat Id"
+          },
+          "section_id": {
+            "type": "integer",
+            "title": "Section Id"
+          },
+          "section_name": {
+            "type": "string",
+            "title": "Section Name"
+          },
+          "standing": {
+            "type": "boolean",
+            "title": "Standing",
+            "description": "Билет в стоячую зону: без ряда и номера места"
+          },
+          "row": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Row"
+          },
+          "number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Number"
+          },
+          "category_id": {
+            "type": "integer",
+            "title": "Category Id"
+          },
+          "price_kopecks": {
+            "type": "integer",
+            "title": "Price Kopecks"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Expires At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "seat_id",
+          "section_id",
+          "section_name",
+          "standing",
+          "row",
+          "number",
+          "category_id",
+          "price_kopecks",
+          "expires_at"
+        ],
+        "title": "HoldOut"
+      },
+      "HoldSeatIn": {
+        "properties": {
+          "seat_id": {
+            "type": "integer",
+            "title": "Seat Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "seat_id"
+        ],
+        "title": "HoldSeatIn"
+      },
+      "HoldZoneIn": {
+        "properties": {
+          "section_id": {
+            "type": "integer",
+            "title": "Section Id",
+            "description": "Стоячая зона (Фан-зона, Танцпол)"
+          },
+          "quantity": {
+            "type": "integer",
+            "maximum": 10.0,
+            "minimum": 1.0,
+            "title": "Quantity"
+          }
+        },
+        "type": "object",
+        "required": [
+          "section_id",
+          "quantity"
+        ],
+        "title": "HoldZoneIn"
+      },
       "LoginIn": {
         "properties": {
           "email": {
@@ -1662,6 +2261,47 @@
           "password"
         ],
         "title": "LoginIn"
+      },
+      "MyHoldsOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/HoldOut"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total_kopecks": {
+            "type": "integer",
+            "title": "Total Kopecks"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At",
+            "description": "Когда истечёт первое из удержаний"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit",
+            "description": "Сколько мест можно держать на одно мероприятие"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total_kopecks",
+          "expires_at",
+          "limit"
+        ],
+        "title": "MyHoldsOut"
       },
       "Page_AdminEvent_": {
         "properties": {
@@ -1975,6 +2615,41 @@
         ],
         "title": "SeatOut"
       },
+      "SeatmapStatus": {
+        "properties": {
+          "held": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Held",
+            "description": "Сидячие места, удержанные сейчас"
+          },
+          "sold": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Sold",
+            "description": "Проданные сидячие места"
+          },
+          "zones": {
+            "items": {
+              "$ref": "#/components/schemas/ZoneAvailability"
+            },
+            "type": "array",
+            "title": "Zones"
+          }
+        },
+        "type": "object",
+        "required": [
+          "held",
+          "sold",
+          "zones"
+        ],
+        "title": "SeatmapStatus",
+        "description": "Занятость зала. Временная версия — читается из PostgreSQL; на этапе 7 её заменит\nмодель чтения в Redis с обновлением в реальном времени (CQRS + SSE)."
+      },
       "SectionKind": {
         "type": "string",
         "enum": [
@@ -2173,6 +2848,29 @@
         ],
         "title": "VenueLayout",
         "description": "Статичная схема площадки: одинакова для всех мероприятий, отлично кэшируется.\n\nМеста стоячих зон в `seats` не входят — у них нет ряда и координат, только вместимость."
+      },
+      "ZoneAvailability": {
+        "properties": {
+          "section_id": {
+            "type": "integer",
+            "title": "Section Id"
+          },
+          "capacity": {
+            "type": "integer",
+            "title": "Capacity"
+          },
+          "available": {
+            "type": "integer",
+            "title": "Available"
+          }
+        },
+        "type": "object",
+        "required": [
+          "section_id",
+          "capacity",
+          "available"
+        ],
+        "title": "ZoneAvailability"
       }
     },
     "securitySchemes": {

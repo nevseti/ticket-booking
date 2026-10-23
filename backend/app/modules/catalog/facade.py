@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from app.core.db import UnitOfWork
-from app.modules.catalog.reference import SeatRef, get_reference
+from app.modules.catalog.reference import SeatRef, SectionRef, get_reference
 from app.modules.catalog.repository import EventRepository
 from app.modules.catalog.schemas import SaleStatus
 from app.modules.catalog.service import hall_config_for, now_utc, sale_status
@@ -20,9 +20,12 @@ __all__ = [
     "SaleStatus",
     "SeatRef",
     "SectionKind",
+    "SectionRef",
     "get_event",
     "get_prices",
     "get_seats",
+    "get_section",
+    "standing_seat_ids",
 ]
 
 
@@ -68,3 +71,17 @@ async def get_seats(uow: UnitOfWork, seat_ids: list[int]) -> dict[int, SeatRef]:
     """Места площадки по id (неизвестные id в ответ не попадают). Из кэша, без запроса к БД."""
     ref = await get_reference(uow.session)
     return {seat_id: ref.seats[seat_id] for seat_id in seat_ids if seat_id in ref.seats}
+
+
+async def get_section(uow: UnitOfWork, section_id: int) -> SectionRef | None:
+    """Сектор площадки; у стоячей зоны в seat_ids — её безымянные места."""
+    ref = await get_reference(uow.session)
+    return ref.sections.get(section_id)
+
+
+async def standing_seat_ids(uow: UnitOfWork) -> dict[int, frozenset[int]]:
+    """Стоячие зоны: id сектора → множество id его безымянных мест."""
+    ref = await get_reference(uow.session)
+    return {
+        s.id: frozenset(s.seat_ids) for s in ref.sections.values() if s.kind == SectionKind.STANDING
+    }
