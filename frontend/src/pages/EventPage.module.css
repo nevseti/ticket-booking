@@ -1,0 +1,56 @@
+.hero {
+  position: relative;
+  overflow: hidden;
+  min-height: 320px;
+  display: flex;
+  align-items: flex-end;
+}
+
+.heroArt {
+  position: absolute;
+  inset: 0;
+}
+
+.heroArt > * {
+  height: 100% !important;
+}
+
+.heroContent {
+  position: relative;
+  width: 100%;
+  padding: 32px;
+  color: #fff;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.75), rgba(0, 0, 0, 0.15) 70%, transparent);
+}
+
+.heroTitle {
+  font-family: 'Unbounded', var(--mantine-font-family);
+  font-weight: 800;
+  font-size: clamp(26px, 4vw, 44px);
+  line-height: 1.1;
+  text-shadow: 0 2px 24px rgba(0, 0, 0, 0.4);
+}
+
+.heroMeta {
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.legend {
+  row-gap: 6px;
+}
+
+.dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 6px;
+  display: inline-block;
+}
+
+.dotTaken {
+  background: light-dark(var(--mantine-color-gray-4), var(--mantine-color-dark-4));
+}
+
+.dotMine {
+  background: transparent;
+  border: 3px solid light-dark(var(--mantine-color-dark-9), var(--mantine-color-white));
+}

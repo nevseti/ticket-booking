@@ -26,6 +26,10 @@ class Settings(BaseSettings):
     auth_cookie_name: str = "access_token"
     auth_token_ttl_minutes: int = 12 * 60
 
+    # Бронирование
+    hold_ttl_seconds: int = 10 * 60  # сколько живёт удержание места
+    max_holds_per_event: int = 6  # сколько мест один пользователь держит на мероприятие
+
     log_level: str = "INFO"
     log_json: bool = False
 

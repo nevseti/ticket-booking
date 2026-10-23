@@ -130,6 +130,49 @@
   transform: scale(1.35);
 }
 
+.seat[data-interactive] {
+  cursor: pointer;
+}
+
+/* Занятые места: приглушённые и некликабельные */
+.seat[data-state='taken'] {
+  fill: light-dark(var(--mantine-color-gray-4), var(--mantine-color-dark-4));
+  cursor: not-allowed;
+}
+
+.seat[data-state='taken']:hover {
+  transform: none;
+  stroke: transparent;
+}
+
+/* Мои места: обводка с мягкой пульсацией */
+.seat[data-state='mine'] {
+  stroke: light-dark(var(--mantine-color-dark-9), var(--mantine-color-white));
+  stroke-width: 2.5;
+  animation: mine-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes mine-pulse {
+  50% {
+    stroke-width: 4;
+  }
+}
+
+.zone[data-sold-out] {
+  fill: light-dark(var(--mantine-color-gray-4), var(--mantine-color-dark-4));
+  cursor: not-allowed;
+}
+
+.tooltipMuted {
+  opacity: 0.7;
+  font-style: italic;
+}
+
+.tooltipMine {
+  font-weight: 700;
+  color: var(--mantine-color-teal-4);
+}
+
 .tooltip {
   position: absolute;
   z-index: 2;

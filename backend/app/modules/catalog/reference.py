@@ -50,6 +50,16 @@ class SeatRef:
 
 
 @dataclass(frozen=True)
+class SectionRef:
+    id: int
+    code: str
+    name: str
+    kind: SectionKind
+    configs: frozenset[HallConfig]
+    seat_ids: tuple[int, ...]  # для стоячей зоны — её безымянные места
+
+
+@dataclass(frozen=True)
 class ReferenceData:
     layout: VenueLayout
     layout_json: bytes
@@ -57,6 +67,7 @@ class ReferenceData:
     categories: dict[int, CategoryOut]
     config_categories: dict[HallConfig, frozenset[int]]
     seats: dict[int, SeatRef]
+    sections: dict[int, SectionRef]
 
 
 _cache: ReferenceData | None = None
@@ -137,6 +148,9 @@ async def _load(session: AsyncSession) -> ReferenceData:
         ],
     )
     layout_json = layout.model_dump_json().encode()
+    seat_ids_by_section: dict[int, list[int]] = defaultdict(list)
+    for seat in seats:
+        seat_ids_by_section[seat.section_id].append(seat.id)
     return ReferenceData(
         layout=layout,
         layout_json=layout_json,
@@ -156,6 +170,17 @@ async def _load(session: AsyncSession) -> ReferenceData:
                 category_id=s.price_category_id,
             )
             for s in seats
+        },
+        sections={
+            s.id: SectionRef(
+                id=s.id,
+                code=s.code,
+                name=s.name,
+                kind=SectionKind(s.kind),
+                configs=frozenset(HallConfig(c) for c in s.configs),
+                seat_ids=tuple(seat_ids_by_section[s.id]),
+            )
+            for s in sections
         },
     )
 
