@@ -76,3 +76,25 @@
   background: transparent;
   border: 3px solid light-dark(var(--mantine-color-dark-9), var(--mantine-color-white));
 }
+
+/* Индикатор SSE: зелёный и пульсирует, пока поток изменений подключён */
+.liveDot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--mantine-color-gray-5);
+}
+
+.liveDot[data-live] {
+  background: var(--mantine-color-teal-6);
+  animation: live-pulse 1.8s ease-out infinite;
+}
+
+@keyframes live-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(18, 184, 134, 0.55);
+  }
+  100% {
+    box-shadow: 0 0 0 8px rgba(18, 184, 134, 0);
+  }
+}

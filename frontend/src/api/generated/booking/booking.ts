@@ -490,6 +490,7 @@ export const useReleaseHold = <TError = ErrorType<Problem>,
 
 /**
  * Занятость зала: удержанные и проданные места, остаток в стоячих зонах.
+ * Читается из модели чтения в Redis (CQRS), а не из таблиц бронирования.
  * @summary Get Seatmap Status
  */
 export const getSeatmapStatus = async (eventId: string, options?: Parameters<typeof customFetch>[1]): Promise<SeatmapStatus> => {
@@ -570,6 +571,107 @@ export function useGetSeatmapStatus<TData = Awaited<ReturnType<typeof getSeatmap
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getGetSeatmapStatusQueryOptions(eventId,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+export const getStreamSeatmapUrl = (eventId: string,) => {
+
+
+
+
+  return `/api/events/${eventId}/seatmap/stream`
+}
+
+/**
+ * Изменения занятости зала в реальном времени (SSE).
+ * @summary Stream Seatmap
+ */
+export const streamSeatmap = async (eventId: string, options?: Parameters<typeof customFetch>[1]): Promise<string> => {
+
+  return customFetch<string>(getStreamSeatmapUrl(eventId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getStreamSeatmapQueryKey = (eventId: string,) => {
+    return [
+    `/api/events/${eventId}/seatmap/stream`
+    ] as const;
+    }
+
+
+export const getStreamSeatmapQueryOptions = <TData = Awaited<ReturnType<typeof streamSeatmap>>, TError = ErrorType<Problem>>(eventId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof streamSeatmap>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getStreamSeatmapQueryKey(eventId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof streamSeatmap>>> = ({ signal }) => streamSeatmap(eventId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: eventId !== null && eventId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof streamSeatmap>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type StreamSeatmapQueryResult = NonNullable<Awaited<ReturnType<typeof streamSeatmap>>>
+export type StreamSeatmapQueryError = ErrorType<Problem>
+
+
+export function useStreamSeatmap<TData = Awaited<ReturnType<typeof streamSeatmap>>, TError = ErrorType<Problem>>(
+ eventId: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof streamSeatmap>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof streamSeatmap>>,
+          TError,
+          Awaited<ReturnType<typeof streamSeatmap>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useStreamSeatmap<TData = Awaited<ReturnType<typeof streamSeatmap>>, TError = ErrorType<Problem>>(
+ eventId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof streamSeatmap>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof streamSeatmap>>,
+          TError,
+          Awaited<ReturnType<typeof streamSeatmap>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useStreamSeatmap<TData = Awaited<ReturnType<typeof streamSeatmap>>, TError = ErrorType<Problem>>(
+ eventId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof streamSeatmap>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Stream Seatmap
+ */
+
+export function useStreamSeatmap<TData = Awaited<ReturnType<typeof streamSeatmap>>, TError = ErrorType<Problem>>(
+ eventId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof streamSeatmap>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getStreamSeatmapQueryOptions(eventId,options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 

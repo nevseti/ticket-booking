@@ -10,7 +10,7 @@ from sqlalchemy import text
 from app.core.db import UnitOfWork
 from app.modules.orders.payments import FakePaymentGateway, PaymentResult
 from app.modules.orders.saga import CheckoutSaga
-from tests.test_booking import auth, concert, hold, layout
+from tests.test_booking import auth, concert, hold, layout, sync_seatmap
 
 __all__ = ["concert", "layout"]
 
@@ -62,6 +62,7 @@ async def test_successful_purchase(client: AsyncClient, concert: str, layout: di
     assert await scalar("SELECT count(*) FROM booking.sold_seats") == 3
     events = await scalar("SELECT array_agg(event_type ORDER BY id) FROM infra.outbox")
     assert "booking.seats_sold" in events and "orders.order_paid" in events
+    await sync_seatmap()
     status = (await client.get(f"/api/events/{concert}/seatmap/status")).json()
     assert set(seats) <= set(status["sold"])
     mine = (await client.get(f"/api/events/{concert}/holds/my", headers=me)).json()

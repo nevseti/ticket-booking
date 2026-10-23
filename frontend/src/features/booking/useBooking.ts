@@ -14,9 +14,12 @@ import {
 } from '../../api/generated/booking/booking'
 import type { HoldOut } from '../../api/generated/model'
 import { ApiError } from '../../api/http'
+import { useSeatmapLive } from './useSeatmapLive'
 
-/** Пока нет SSE (этап 7), занятость зала опрашивается раз в 3 секунды. */
-const STATUS_POLL_MS = 3000
+/** Изменения занятости приходят по SSE; опрос — подстраховка. Без потока (обрыв,
+ * старый прокси) схема перечитывается чаще. */
+const STATUS_POLL_LIVE_MS = 30_000
+const STATUS_POLL_FALLBACK_MS = 5_000
 
 const MESSAGES: Record<string, (e: ApiError) => string> = {
   SEAT_UNAVAILABLE: () => 'Это место только что заняли — выберите другое',
@@ -49,8 +52,13 @@ export interface SeatStatus {
 
 export function useBooking(eventId: string, { enabled, loggedIn }: { enabled: boolean; loggedIn: boolean }) {
   const queryClient = useQueryClient()
+  const live = useSeatmapLive(eventId, enabled)
   const statusQuery = useGetSeatmapStatus(eventId, {
-    query: { enabled, refetchInterval: STATUS_POLL_MS, staleTime: 0 },
+    query: {
+      enabled,
+      refetchInterval: live ? STATUS_POLL_LIVE_MS : STATUS_POLL_FALLBACK_MS,
+      staleTime: 0,
+    },
   })
   const myQuery = useMyHolds(eventId, {
     query: { enabled: enabled && loggedIn, refetchInterval: 15_000 },
@@ -88,6 +96,7 @@ export function useBooking(eventId: string, { enabled, loggedIn }: { enabled: bo
   return {
     status,
     statusReady: statusQuery.isSuccess,
+    live,
     my: myQuery.data,
     holdSeat: (seatId: number) => holdSeat.mutate({ eventId, data: { seat_id: seatId } }),
     holdZone: (sectionId: number, quantity: number) =>

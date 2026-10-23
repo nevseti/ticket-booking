@@ -1,17 +1,25 @@
 """Публичный интерфейс модуля booking. Только его могут вызывать другие модули.
 
 Нужен заказам (сага оплаты): подготовить удержания к оплате, погасить их покупкой,
-освободить при отказе.
+освободить при отказе. Воркеру — убирать просроченные удержания и обновлять модель чтения
+схемы зала.
 """
 
 import uuid
 from dataclasses import dataclass
+from typing import Any
+
+import structlog
+from redis.exceptions import RedisError
 
 from app.core.db import UnitOfWork
 from app.core.errors import ConflictError
+from app.modules.booking import seatmap_view
 from app.modules.booking.repository import HoldRepository
-from app.modules.booking.service import HOLDS_EXPIRED, SEATS_RELEASED, emit_holds
+from app.modules.booking.service import HOLDS_EXPIRED, SEATS_RELEASED, SEATS_SOLD, emit_holds
 from app.shared.outbox import add_event
+
+log = structlog.get_logger()
 
 __all__ = [
     "CheckoutHold",
@@ -19,10 +27,9 @@ __all__ = [
     "confirm_sale",
     "expire_overdue_holds",
     "prepare_checkout",
+    "project_seatmap_event",
     "release_holds",
 ]
-
-SEATS_SOLD = "booking.seats_sold"
 
 # Сколько времени гарантированно держим места на время оплаты
 CHECKOUT_HOLD_SECONDS = 3 * 60
@@ -93,3 +100,21 @@ async def expire_overdue_holds(uow: UnitOfWork, limit: int = 500) -> int:
     for event_id, holds in by_event.items():
         emit_holds(uow, HOLDS_EXPIRED, event_id, holds)
     return len(expired)
+
+
+async def project_seatmap_event(event_type: str, payload: dict[str, Any]) -> int | None:
+    """Обновить модель чтения схемы зала по событию booking.* (вызывает воркер).
+
+    Недоступность Redis пробрасывается — воркер повторит то же сообщение, сохранив порядок.
+    Любая другая ошибка сбрасывает проекцию мероприятия: следующее чтение построит её из БД.
+    """
+    try:
+        async with UnitOfWork() as uow:
+            return await seatmap_view.project(uow, event_type, payload)
+    except RedisError:
+        raise
+    except Exception:
+        log.exception("seatmap_projection_failed", event_type=event_type)
+        if "event_id" in payload:
+            await seatmap_view.invalidate(uuid.UUID(payload["event_id"]))
+        return None
