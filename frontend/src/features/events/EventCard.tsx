@@ -3,6 +3,7 @@ import { Link } from 'react-router'
 
 import type { EventCard as EventCardData } from '../../api/generated/model'
 import { formatDateTime, formatPrice, formatShortDateTime, KIND_LABELS, SALE_STATUS } from '../../shared/format'
+import classes from './EventCard.module.css'
 import { EventPoster } from './EventPoster'
 
 export function EventCard({ event }: { event: EventCardData }) {
@@ -14,13 +15,20 @@ export function EventCard({ event }: { event: EventCardData }) {
       to={`/events/${event.id}`}
       withBorder
       padding={0}
-      radius="md"
-      style={{ overflow: 'hidden' }}
+      radius="lg"
+      className={classes.card}
+      aria-label={event.title}
     >
-      <EventPoster kind={event.kind} posterUrl={event.poster_url} height={150} seed={event.id} />
+      <EventPoster
+        kind={event.kind}
+        title={event.title}
+        posterUrl={event.poster_url}
+        height={210}
+        seed={event.id}
+      />
       <Stack gap={6} p="md">
         <Group justify="space-between" gap="xs">
-          <Text size="xs" c="dimmed" tt="uppercase" fw={600}>
+          <Text size="xs" c="dimmed" tt="uppercase" fw={700}>
             {KIND_LABELS[event.kind]}
           </Text>
           {event.sale_status !== 'on_sale' && (
@@ -31,17 +39,17 @@ export function EventCard({ event }: { event: EventCardData }) {
             </Badge>
           )}
         </Group>
-        <Text fw={700} lineClamp={2} mih={44}>
-          {event.title}
-        </Text>
-        <Text size="sm" c="dimmed">
-          {formatDateTime(event.starts_at)}
-        </Text>
-        {event.min_price_kopecks != null && (
-          <Text size="sm" fw={600}>
-            от {formatPrice(event.min_price_kopecks)}
-          </Text>
-        )}
+        <Text size="sm">{formatDateTime(event.starts_at)}</Text>
+        <Group justify="space-between">
+          {event.min_price_kopecks != null && (
+            <Text fw={700}>от {formatPrice(event.min_price_kopecks)}</Text>
+          )}
+          {event.sale_status === 'on_sale' && (
+            <Text size="sm" fw={600} c="var(--mantine-primary-color-filled)">
+              Купить →
+            </Text>
+          )}
+        </Group>
       </Stack>
     </Card>
   )

@@ -1,7 +1,7 @@
 import { ActionIcon, Group } from '@mantine/core'
 import { IconFocusCentered, IconMinus, IconPlus } from '@tabler/icons-react'
 import { memo, useCallback, useMemo, useRef, useState } from 'react'
-import type { MouseEvent } from 'react'
+import type { MouseEvent, PointerEvent } from 'react'
 import { TransformComponent, TransformWrapper } from 'react-zoom-pan-pinch'
 
 import type {
@@ -12,6 +12,7 @@ import type {
   VenueLayout,
 } from '../../api/generated/model'
 import { formatPrice } from '../../shared/format'
+import type { SeatStatus } from '../booking/useBooking'
 import classes from './SeatMap.module.css'
 
 const SEAT_RADIUS = 5.5
@@ -22,6 +23,19 @@ export interface SeatMapProps {
   hallConfig: HallConfig
   /** Цены мероприятия: id категории → копейки. Без них подсказка показывает только место. */
   prices?: Map<number, number>
+  /** Занятость зала; без неё схема статична (продажи не идут). */
+  status?: SeatStatus
+  onSeatClick?: (seat: SeatOut) => void
+  onZoneClick?: (section: SectionOut) => void
+}
+
+type SeatState = 'free' | 'mine' | 'taken'
+
+function seatState(status: SeatStatus | undefined, seatId: number): SeatState {
+  if (!status) return 'free'
+  if (status.mine.has(seatId)) return 'mine'
+  if (status.held.has(seatId) || status.sold.has(seatId)) return 'taken'
+  return 'free'
 }
 
 type Hovered =
@@ -72,6 +86,12 @@ function IceRink({ rink }: { rink: RinkOut }) {
   )
 }
 
+function zoneHint(status: SeatStatus | undefined, section: SectionOut): string {
+  const available = status?.zones.get(section.id)
+  if (available === undefined) return 'стоячие места'
+  return available > 0 ? `свободно ${available} из ${section.capacity}` : 'мест нет'
+}
+
 /**
  * Статичная часть схемы: поле, секторы, места. Мемоизирована целиком — при наведении
  * курсора и прочих перерисовках родителя тысячи элементов SVG не пересоздаются.
@@ -79,9 +99,13 @@ function IceRink({ rink }: { rink: RinkOut }) {
 const SeatLayer = memo(function SeatLayer({
   layout,
   hallConfig,
+  status,
+  interactive,
 }: {
   layout: VenueLayout
   hallConfig: HallConfig
+  status?: SeatStatus
+  interactive: boolean
 }) {
   const colors = useMemo(
     () => new Map(layout.categories.map((c) => [c.id, c.color])),
@@ -126,12 +150,13 @@ const SeatLayer = memo(function SeatLayer({
               data-section-id={section.id}
               fill={colors.get(section.category_id ?? 0)}
               className={classes.zone}
+              data-sold-out={status?.zones.get(section.id) === 0 || undefined}
             />
             <text x={section.label_x} y={section.label_y - 8} className={classes.zoneLabel}>
               {section.name}
             </text>
             <text x={section.label_x} y={section.label_y + 16} className={classes.zoneHint}>
-              стоячие места
+              {zoneHint(status, section)}
             </text>
           </g>
         ) : (
@@ -145,25 +170,39 @@ const SeatLayer = memo(function SeatLayer({
       )}
 
       <g>
-        {seats.map((seat) => (
-          <circle
-            key={seat.id}
-            data-seat-id={seat.id}
-            cx={seat.x}
-            cy={seat.y}
-            r={SEAT_RADIUS}
-            fill={colors.get(seat.category_id)}
-            className={classes.seat}
-          />
-        ))}
+        {seats.map((seat) => {
+          const state = seatState(status, seat.id)
+          return (
+            <circle
+              key={seat.id}
+              data-seat-id={seat.id}
+              data-state={state}
+              data-interactive={interactive || undefined}
+              cx={seat.x}
+              cy={seat.y}
+              r={state === 'mine' ? SEAT_RADIUS + 1 : SEAT_RADIUS}
+              fill={state === 'taken' ? undefined : colors.get(seat.category_id)}
+              className={classes.seat}
+            />
+          )
+        })}
       </g>
     </>
   )
 })
 
-export function SeatMap({ layout, hallConfig, prices }: SeatMapProps) {
+export function SeatMap({
+  layout,
+  hallConfig,
+  prices,
+  status,
+  onSeatClick,
+  onZoneClick,
+}: SeatMapProps) {
   const wrapperRef = useRef<HTMLDivElement>(null)
+  const pointerDown = useRef<{ x: number; y: number } | null>(null)
   const [hovered, setHovered] = useState<Hovered | null>(null)
+  const interactive = Boolean(onSeatClick)
 
   const seatsById = useMemo(() => new Map(layout.seats.map((s) => [s.id, s])), [layout.seats])
   const sectionsById = useMemo(
@@ -209,6 +248,26 @@ export function SeatMap({ layout, hallConfig, prices }: SeatMapProps) {
     [seatsById, sectionsById],
   )
 
+  // Клик отличаем от перетаскивания схемы: смещение больше 6 px — это панорамирование.
+  const handlePointerDown = (e: PointerEvent) => {
+    pointerDown.current = { x: e.clientX, y: e.clientY }
+  }
+  const handleClick = (e: MouseEvent<SVGSVGElement>) => {
+    const start = pointerDown.current
+    if (start && Math.hypot(e.clientX - start.x, e.clientY - start.y) > 6) return
+    const target = e.target as Element
+    const seatId = target.getAttribute('data-seat-id')
+    const zoneId = target.getAttribute('data-section-id')
+    if (seatId && onSeatClick) {
+      const seat = seatsById.get(Number(seatId))
+      if (seat && seatState(status, seat.id) !== 'taken') onSeatClick(seat)
+    } else if (zoneId && onZoneClick) {
+      const zone = sectionsById.get(Number(zoneId))
+      if (zone) onZoneClick(zone)
+    }
+  }
+
+  const hoveredState = hovered?.type === 'seat' ? seatState(status, hovered.seat.id) : undefined
   const categoryId =
     hovered?.type === 'seat' ? hovered.seat.category_id : hovered?.section.category_id
   const hoveredPrice = categoryId != null ? prices?.get(categoryId) : undefined
@@ -245,10 +304,17 @@ export function SeatMap({ layout, hallConfig, prices }: SeatMapProps) {
                 viewBox={`0 0 ${layout.width} ${layout.height}`}
                 className={classes.svg}
                 onMouseOver={handleMouseOver}
+                onPointerDown={handlePointerDown}
+                onClick={handleClick}
                 role="img"
                 aria-label={`Схема зала: ${layout.name}`}
               >
-                <SeatLayer layout={layout} hallConfig={hallConfig} />
+                <SeatLayer
+                  layout={layout}
+                  hallConfig={hallConfig}
+                  status={status}
+                  interactive={interactive}
+                />
               </svg>
             </TransformComponent>
           </>
@@ -271,9 +337,16 @@ export function SeatMap({ layout, hallConfig, prices }: SeatMapProps) {
               <div>
                 <b>{hovered.section.name}</b>
               </div>
-              <div>Стоячие места · вместимость {hovered.section.capacity}</div>
+              <div>
+                Стоячие места ·{' '}
+                {status?.zones.has(hovered.section.id)
+                  ? `свободно ${status.zones.get(hovered.section.id)}`
+                  : `вместимость ${hovered.section.capacity}`}
+              </div>
             </>
           )}
+          {hoveredState === 'taken' && <div className={classes.tooltipMuted}>Занято</div>}
+          {hoveredState === 'mine' && <div className={classes.tooltipMine}>Ваше место</div>}
           <div>
             {categoryName}
             {hoveredPrice != null && ` · ${formatPrice(hoveredPrice)}`}
