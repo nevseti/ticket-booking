@@ -70,7 +70,7 @@ SEATS_RELEASED = "booking.seats_released"
 HOLDS_EXPIRED = "booking.holds_expired"
 
 
-def _emit(uow: UnitOfWork, event_type: str, event_id: uuid.UUID, holds: list[HoldRow]) -> None:
+def emit_holds(uow: UnitOfWork, event_type: str, event_id: uuid.UUID, holds: list[HoldRow]) -> None:
     if not holds:
         return
     add_event(
@@ -116,13 +116,13 @@ class BookingService:
             return existing  # двойной клик не должен превращаться в ошибку
         await self._check_limit(user_id, event_id, adding=1)
 
-        _emit(
+        emit_holds(
             self._uow, HOLDS_EXPIRED, event_id, await self._holds.expire_stale(event_id, [seat_id])
         )
         hold = await self._holds.try_capture(event_id, seat_id, user_id, settings.hold_ttl_seconds)
         if hold is None:
             raise SeatUnavailableError()
-        _emit(self._uow, SEATS_HELD, event_id, [hold])
+        emit_holds(self._uow, SEATS_HELD, event_id, [hold])
         return hold
 
     async def hold_zone(
@@ -142,7 +142,7 @@ class BookingService:
         await self._check_limit(user_id, event_id, adding=quantity)
         await self._holds.lock_zone(event_id, section_id)
         zone_seats = list(zone.seat_ids)
-        _emit(
+        emit_holds(
             self._uow, HOLDS_EXPIRED, event_id, await self._holds.expire_stale(event_id, zone_seats)
         )
 
@@ -165,17 +165,19 @@ class BookingService:
         if len(acquired) < quantity:
             available = len(await self._holds.free_seats(event_id, zone_seats, limit=quantity))
             raise NotEnoughPlacesError(extra={"available": available})
-        _emit(self._uow, SEATS_HELD, event_id, acquired)
+        emit_holds(self._uow, SEATS_HELD, event_id, acquired)
         return acquired
 
     async def release(self, user_id: uuid.UUID, hold_id: uuid.UUID) -> None:
         hold = await self._holds.release(hold_id, user_id)
         if hold is None:
             raise HoldNotFoundError()
-        _emit(self._uow, SEATS_RELEASED, hold.event_id, [hold])
+        emit_holds(self._uow, SEATS_RELEASED, hold.event_id, [hold])
 
     async def release_all(self, user_id: uuid.UUID, event_id: uuid.UUID) -> None:
-        _emit(self._uow, SEATS_RELEASED, event_id, await self._holds.release_all(user_id, event_id))
+        emit_holds(
+            self._uow, SEATS_RELEASED, event_id, await self._holds.release_all(user_id, event_id)
+        )
 
     async def describe(self, event_id: uuid.UUID, holds: list[HoldRow]) -> list[HoldOut]:
         seats = await catalog.get_seats(self._uow, [h.seat_id for h in holds])

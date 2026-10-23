@@ -6,10 +6,13 @@ import { createBrowserRouter } from 'react-router'
 import { RequireAdmin, RequireAuth } from '../features/auth/guards'
 import { AppLayout } from '../layouts/AppLayout'
 import { AdminEventFormPage, AdminEventsPage } from '../pages/admin/lazy'
+import { CheckoutPage } from '../pages/CheckoutPage'
 import { EventPage } from '../pages/EventPage'
 import { HomePage } from '../pages/HomePage'
 import { LoginPage } from '../pages/LoginPage'
 import { NotFoundPage } from '../pages/NotFoundPage'
+import { OrderPage } from '../pages/OrderPage'
+import { OrdersPage } from '../pages/OrdersPage'
 import { ProfilePage } from '../pages/ProfilePage'
 import { RegisterPage } from '../pages/RegisterPage'
 
@@ -35,6 +38,9 @@ export const router = createBrowserRouter([
       { path: 'login', element: <LoginPage /> },
       { path: 'register', element: <RegisterPage /> },
       { path: 'profile', element: auth(<ProfilePage />) },
+      { path: 'checkout/:eventId', element: auth(<CheckoutPage />) },
+      { path: 'orders', element: auth(<OrdersPage />) },
+      { path: 'orders/:orderId', element: auth(<OrderPage />) },
       { path: 'admin/events', element: admin(<AdminEventsPage />) },
       { path: 'admin/events/new', element: admin(<AdminEventFormPage />) },
       { path: 'admin/events/:eventId', element: admin(<AdminEventFormPage />) },

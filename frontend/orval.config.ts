@@ -12,6 +12,8 @@ export default defineConfig({
       client: 'react-query',
       httpClient: 'fetch',
       clean: true,
+      // Заголовки из OpenAPI (например, Idempotency-Key) становятся параметрами функций.
+      headers: true,
       override: {
         mutator: { path: './src/api/http.ts', name: 'customFetch' },
         fetch: { includeHttpResponseReturnType: false },

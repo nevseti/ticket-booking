@@ -189,3 +189,57 @@ class HoldRepository:
             {"event_id": event_id},
         )
         return list(held), list(sold)
+
+    async def extend_for_checkout(
+        self, user_id: uuid.UUID, event_id: uuid.UUID, min_seconds: int
+    ) -> list[HoldRow]:
+        """Активные удержания пользователя; оставшееся время продлевается до min_seconds,
+        чтобы уборщик не погасил их, пока идёт оплата."""
+        rows = await self._session.execute(
+            text(f"""
+                UPDATE booking.holds
+                SET expires_at = greatest(expires_at, now() + make_interval(secs => :secs))
+                WHERE user_id = :user_id AND event_id = :event_id
+                  AND status = 'active' AND expires_at > now()
+                RETURNING {_HOLD_COLUMNS}
+            """),
+            {"user_id": user_id, "event_id": event_id, "secs": min_seconds},
+        )
+        return [_row(r) for r in rows]
+
+    async def convert(self, user_id: uuid.UUID, hold_ids: list[uuid.UUID]) -> list[HoldRow]:
+        """Погасить удержания покупкой. Условный UPDATE: только свои и только активные."""
+        rows = await self._session.execute(
+            text(f"""
+                UPDATE booking.holds SET status = 'converted', closed_at = now()
+                WHERE id = ANY(:hold_ids) AND user_id = :user_id AND status = 'active'
+                RETURNING {_HOLD_COLUMNS}
+            """),
+            {"hold_ids": hold_ids, "user_id": user_id},
+        )
+        return [_row(r) for r in rows]
+
+    async def mark_sold(
+        self, event_id: uuid.UUID, seat_ids: list[int], order_id: uuid.UUID
+    ) -> None:
+        """Пометить места проданными. PK (event_id, seat_id) не даст продать место дважды:
+        повторная вставка упадёт с IntegrityError и откатит всю покупку."""
+        await self._session.execute(
+            text("""
+                INSERT INTO booking.sold_seats (event_id, seat_id, order_id)
+                SELECT :event_id, seat_id, :order_id
+                FROM unnest(CAST(:seat_ids AS integer[])) AS seat_id
+            """),
+            {"event_id": event_id, "seat_ids": seat_ids, "order_id": order_id},
+        )
+
+    async def release_many(self, user_id: uuid.UUID, hold_ids: list[uuid.UUID]) -> list[HoldRow]:
+        rows = await self._session.execute(
+            text(f"""
+                UPDATE booking.holds SET status = 'released', closed_at = now()
+                WHERE id = ANY(:hold_ids) AND user_id = :user_id AND status = 'active'
+                RETURNING {_HOLD_COLUMNS}
+            """),
+            {"hold_ids": hold_ids, "user_id": user_id},
+        )
+        return [_row(r) for r in rows]

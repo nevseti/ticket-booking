@@ -1,0 +1,76 @@
+.ticket {
+  display: flex;
+  max-width: 760px;
+  border-radius: 18px;
+  overflow: hidden;
+  border: 1px solid var(--mantine-color-default-border);
+  background: var(--mantine-color-body);
+  box-shadow: var(--mantine-shadow-sm);
+}
+
+.main {
+  flex: 1;
+  padding: 20px 24px;
+  background:
+    radial-gradient(circle at 0% 0%, rgba(112, 72, 232, 0.18), transparent 55%),
+    radial-gradient(circle at 100% 100%, rgba(230, 73, 128, 0.14), transparent 50%);
+}
+
+.title {
+  font-family: 'Unbounded', var(--mantine-font-family);
+  font-weight: 800;
+  font-size: 20px;
+  line-height: 1.2;
+  margin: 4px 0;
+}
+
+/* Корешок билета с «перфорацией» */
+.stub {
+  position: relative;
+  width: 168px;
+  padding: 18px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-left: 2px dashed var(--mantine-color-default-border);
+}
+
+.stub::before,
+.stub::after {
+  content: '';
+  position: absolute;
+  left: -11px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--mantine-color-body);
+  border: 1px solid var(--mantine-color-default-border);
+}
+
+.stub::before {
+  top: -11px;
+}
+
+.stub::after {
+  bottom: -11px;
+}
+
+.qr {
+  padding: 8px;
+  background: #fff;
+  border-radius: 10px;
+}
+
+@media (max-width: 36em) {
+  .ticket {
+    flex-direction: column;
+  }
+
+  .stub {
+    width: auto;
+    border-left: none;
+    border-top: 2px dashed var(--mantine-color-default-border);
+  }
+}

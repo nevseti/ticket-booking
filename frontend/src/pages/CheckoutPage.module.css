@@ -1,0 +1,39 @@
+.card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 150px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  color: #fff;
+  box-shadow: var(--mantine-shadow-sm);
+  outline: 3px solid transparent;
+  outline-offset: 2px;
+  transition:
+    transform 140ms ease,
+    outline-color 140ms ease;
+}
+
+.card:hover {
+  transform: translateY(-2px);
+}
+
+.card[data-active] {
+  outline-color: var(--mantine-primary-color-filled);
+}
+
+.chip {
+  width: 34px;
+  height: 26px;
+  border-radius: 6px;
+  background: linear-gradient(135deg, #f8e7a1, #c9a227);
+}
+
+.cardNumber {
+  margin-top: auto;
+  font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
