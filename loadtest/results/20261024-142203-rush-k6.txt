@@ -1,0 +1,62 @@
+
+
+  █ THRESHOLDS 
+
+    checks
+    ✓ 'rate>0.99' rate=100.00%
+
+    http_req_duration{name:checkout}
+    ✗ 'p(95)<2500' p(95)=10.19s
+
+    http_req_duration{name:hold}
+    ✗ 'p(95)<500' p(95)=3.39s
+
+    http_req_duration{name:status}
+    ✗ 'p(95)<300' p(95)=659.35ms
+
+    http_req_failed
+    ✓ 'rate<0.01' rate=0.00%
+
+    purchase_unexpected_failure
+    ✓ 'rate<0.01' rate=0.00%
+
+
+  █ TOTAL RESULTS 
+
+    checks_total.......: 784     8.663887/s
+    checks_succeeded...: 100.00% 784 out of 784
+    checks_failed......: 0.00%   0 out of 784
+
+    ✓ схема загружена
+    ✓ место: 201 или 409
+    ✓ зона: 201 или 409
+    ✓ оплата: сага завершилась как ожидалось
+
+    CUSTOM
+    holds_conflict.................: 1      0.011051/s
+    holds_ok.......................: 171    1.8897/s
+    purchase_unexpected_failure....: 0.00%  0 out of 114
+    purchases_completed............: 101    1.116139/s
+    purchases_declined.............: 13     0.143661/s
+
+    HTTP
+    http_req_duration..............: avg=1.38s   med=347.65ms p(90)=4.94s    p(95)=7.15s    p(99)=9.38s    max=11.14s
+      { expected_response:true }...: avg=1.38s   med=347.65ms p(90)=4.94s    p(95)=7.15s    p(99)=9.38s    max=11.14s
+      { name:checkout }............: avg=5.85s   med=5.92s    p(90)=9.19s    p(95)=10.19s   p(99)=11.01s   max=11.14s
+      { name:hold }................: avg=1.38s   med=1.04s    p(90)=2.91s    p(95)=3.39s    p(99)=4.86s    max=5.87s 
+      { name:status }..............: avg=226.1ms med=175.2ms  p(90)=503.14ms p(95)=659.35ms p(99)=835.36ms max=1.14s 
+    http_req_failed................: 0.00%  0 out of 785
+    http_reqs......................: 785    8.674938/s
+
+    EXECUTION
+    iteration_duration.............: avg=4.8s    med=2.23s    p(90)=14.35s   p(95)=15.69s   p(99)=19.66s   max=22.33s
+    iterations.....................: 498    5.503337/s
+    vus............................: 2      min=0        max=30
+    vus_max........................: 30     min=30       max=30
+
+    NETWORK
+    data_received..................: 938 kB 10 kB/s
+    data_sent......................: 200 kB 2.2 kB/s
+
+
+

@@ -1,0 +1,63 @@
+
+
+  █ THRESHOLDS 
+
+    checks
+    ✓ 'rate>0.99' rate=100.00%
+
+    http_req_duration{name:checkout}
+    ✗ 'p(95)<2500' p(95)=14.79s
+
+    http_req_duration{name:hold}
+    ✗ 'p(95)<500' p(95)=5.73s
+
+    http_req_duration{name:status}
+    ✗ 'p(95)<300' p(95)=519.53ms
+
+    http_req_failed
+    ✗ 'rate<0.01' rate=1.45%
+
+    purchase_unexpected_failure
+    ✓ 'rate<0.01' rate=0.00%
+
+
+  █ TOTAL RESULTS 
+
+    checks_total.......: 1629    17.301013/s
+    checks_succeeded...: 100.00% 1629 out of 1629
+    checks_failed......: 0.00%   0 out of 1629
+
+    ✓ схема загружена
+    ✓ место: 201 или 409
+    ✓ зона: 201 или 409
+    ✓ оплата: сага завершилась как ожидалось
+
+    CUSTOM
+    holds_conflict.................: 3      0.031862/s
+    holds_ok.......................: 374    3.972117/s
+    purchase_unexpected_failure....: 0.00%  0 out of 238
+    purchases_completed............: 211    2.240954/s
+    purchases_declined.............: 27     0.286757/s
+    requests_shed_503..............: 24     0.254895/s
+
+    HTTP
+    http_req_duration..............: avg=1.78s med=291.26ms p(90)=6.33s    p(95)=8.84s    p(99)=12.98s   max=18.02s  
+      { expected_response:true }...: avg=1.81s med=298.38ms p(90)=6.38s    p(95)=8.93s    p(99)=13.07s   max=18.02s  
+      { name:checkout }............: avg=7.8s  med=7.08s    p(90)=12.04s   p(95)=14.79s   p(99)=17.14s   max=18.02s  
+      { name:hold }................: avg=1.95s med=1.24s    p(90)=4.57s    p(95)=5.73s    p(99)=8.68s    max=11.86s  
+      { name:status }..............: avg=200ms med=166.57ms p(90)=429.78ms p(95)=519.53ms p(99)=623.49ms max=820.31ms
+    http_req_failed................: 1.45%  24 out of 1654
+    http_reqs......................: 1654   17.566529/s
+
+    EXECUTION
+    iteration_duration.............: avg=5.61s med=2.22s    p(90)=17.12s   p(95)=20.25s   p(99)=26.13s   max=34.61s  
+    iterations.....................: 1012   10.748082/s
+    vus............................: 3      min=3          max=70
+    vus_max........................: 70     min=70         max=70
+
+    NETWORK
+    data_received..................: 1.9 MB 20 kB/s
+    data_sent......................: 429 kB 4.6 kB/s
+
+
+

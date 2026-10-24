@@ -26,10 +26,8 @@ dist/
 .DS_Store
 Thumbs.db
 
-# Нагрузочное тестирование
-loadtest/results/
-loadtest/tokens.json
 .claude/settings.local.json
 
 # Нагрузочный тест: токены тестовых пользователей не коммитим
+# (результаты в loadtest/results/ коммитим — на них ссылается docs/loadtest-report.md)
 loadtest/data/

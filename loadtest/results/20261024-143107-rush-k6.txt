@@ -1,0 +1,61 @@
+
+
+  █ THRESHOLDS 
+
+    checks
+    ✓ 'rate>0.99' rate=100.00%
+
+    http_req_duration{name:checkout}
+    ✗ 'p(95)<2500' p(95)=5.73s
+
+    http_req_duration{name:hold}
+    ✗ 'p(95)<500' p(95)=1.85s
+
+    http_req_duration{name:status}
+    ✗ 'p(95)<300' p(95)=479.04ms
+
+    http_req_failed
+    ✓ 'rate<0.01' rate=0.00%
+
+    purchase_unexpected_failure
+    ✓ 'rate<0.01' rate=0.00%
+
+
+  █ TOTAL RESULTS 
+
+    checks_total.......: 992     11.10745/s
+    checks_succeeded...: 100.00% 992 out of 992
+    checks_failed......: 0.00%   0 out of 992
+
+    ✓ схема загружена
+    ✓ место: 201 или 409
+    ✓ зона: 201 или 409
+    ✓ оплата: сага завершилась как ожидалось
+
+    CUSTOM
+    holds_ok.......................: 253    2.832848/s
+    purchase_unexpected_failure....: 0.00%  0 out of 169
+    purchases_completed............: 155    1.735539/s
+    purchases_declined.............: 14     0.156758/s
+
+    HTTP
+    http_req_duration..............: avg=810.2ms  med=206.46ms p(90)=2.67s    p(95)=3.66s    p(99)=5.53s    max=7.54s   
+      { expected_response:true }...: avg=810.2ms  med=206.46ms p(90)=2.67s    p(95)=3.66s    p(99)=5.53s    max=7.54s   
+      { name:checkout }............: avg=3.07s    med=3.01s    p(90)=4.91s    p(95)=5.73s    p(99)=7.33s    max=7.54s   
+      { name:hold }................: avg=691.3ms  med=532.88ms p(90)=1.47s    p(95)=1.85s    p(99)=2.39s    max=2.64s   
+      { name:status }..............: avg=135.27ms med=90.85ms  p(90)=281.91ms p(95)=479.04ms p(99)=861.21ms max=903.57ms
+    http_req_failed................: 0.00%  0 out of 993
+    http_reqs......................: 993    11.118647/s
+
+    EXECUTION
+    iteration_duration.............: avg=4.2s     med=2.15s    p(90)=9.69s    p(95)=11.03s   p(99)=13.29s   max=16.83s  
+    iterations.....................: 570    6.382305/s
+    vus............................: 3      min=0        max=30
+    vus_max........................: 30     min=30       max=30
+
+    NETWORK
+    data_received..................: 1.1 MB 13 kB/s
+    data_sent......................: 273 kB 3.1 kB/s
+
+
+
