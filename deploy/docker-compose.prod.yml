@@ -77,7 +77,11 @@ services:
       rabbitmq: { condition: service_healthy }
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=3)"]
-      interval: 15s
+      # Каждая проверка — новый процесс Python. На одном слабом ядре это заметно (нашёл
+      # нагрузочный тест), поэтому в работе — раз в 30 с, а при старте — часто.
+      interval: 30s
+      start_period: 60s
+      start_interval: 2s
       timeout: 5s
       retries: 5
 
@@ -114,7 +118,9 @@ services:
       - pgdata:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
-      interval: 5s
+      interval: 15s
+      start_period: 30s
+      start_interval: 2s
       timeout: 3s
       retries: 20
     restart: unless-stopped
@@ -130,7 +136,9 @@ services:
       - redisdata:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
+      interval: 15s
+      start_period: 30s
+      start_interval: 2s
       timeout: 3s
       retries: 20
     restart: unless-stopped
@@ -164,8 +172,12 @@ services:
       - "127.0.0.1:15672:15672"
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
-      interval: 10s
-      timeout: 5s
+      # rabbitmq-diagnostics запускает целую виртуальную машину Erlang: ~0,5 с процессора
+      # на проверку (под нагрузкой — до 44 % ядра). Раз в минуту, а при старте — часто.
+      interval: 60s
+      start_period: 90s
+      start_interval: 3s
+      timeout: 10s
       retries: 20
     restart: unless-stopped
     logging: *logging

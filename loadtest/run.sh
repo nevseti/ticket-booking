@@ -17,7 +17,7 @@ DATA=$LT/data
 mkdir -p "$RESULTS" "$DATA"
 STAMP=$(date +%Y%m%d-%H%M%S)
 NETWORK=$(docker network ls --format '{{.Name}}' | grep -m1 '^ticket-booking_default$')
-K6_IMAGE=grafana/k6:latest
+K6_IMAGE=grafana/k6:2.3.0
 
 compose() { docker compose "$@"; }
 psql_() { compose exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" "$@"' -- "$@"; }
@@ -31,10 +31,11 @@ prepare() {
 k6_run() {
   local name=$1 script=$2
   shift 2
-  # Пока идёт тест — снимок потребления ресурсов контейнерами раз в 5 с.
+  # Пока идёт тест — снимок потребления ресурсов контейнерами раз в 10 с (сам docker
+  # stats тоже стоит процессора, поэтому не чаще).
   (while :; do
      docker stats --no-stream --format '{{.Name}},{{.CPUPerc}},{{.MemUsage}}' | sed "s/^/$(date +%T),/"
-     sleep 5
+     sleep 10
    done) > "$RESULTS/$STAMP-$name-stats.csv" &
   local stats_pid=$!
   docker run --rm --network "$NETWORK" --memory 256m \
