@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, Request, Response, status
 from app.core.config import settings
 from app.core.db import UnitOfWork, get_uow
 from app.core.errors import UnauthorizedError, problem_responses
+from app.core.ratelimit import AUTH, limit_by_ip
 from app.modules.identity.facade import AuthUser, current_user
 from app.modules.identity.models import User
 from app.modules.identity.repository import UserRepository
@@ -34,7 +35,8 @@ def _set_auth_cookie(request: Request, response: Response, user: User) -> None:
     "/auth/register",
     response_model=UserOut,
     status_code=status.HTTP_201_CREATED,
-    responses=problem_responses(409),
+    responses=problem_responses(409, 429),
+    dependencies=[limit_by_ip(AUTH)],
 )
 async def register(body: RegisterIn, request: Request, response: Response, uow: Uow) -> User:
     """Регистрация. Пользователь сразу оказывается авторизованным."""
@@ -49,7 +51,8 @@ async def register(body: RegisterIn, request: Request, response: Response, uow: 
 @router.post(
     "/auth/login",
     response_model=UserOut,
-    responses=problem_responses(401),
+    responses=problem_responses(401, 429),
+    dependencies=[limit_by_ip(AUTH)],
 )
 async def login(body: LoginIn, request: Request, response: Response, uow: Uow) -> User:
     user = await IdentityService(uow).authenticate(email=body.email, password=body.password)

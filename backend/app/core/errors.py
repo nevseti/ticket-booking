@@ -59,6 +59,7 @@ class AppError(Exception):
     status_code: int = 400
     code: str = "BAD_REQUEST"
     title: str = "Некорректный запрос"
+    headers: dict[str, str] | None = None  # дополнительные заголовки ответа
 
     def __init__(
         self,
@@ -103,6 +104,14 @@ class RateLimitedError(AppError):
     code = "RATE_LIMITED"
     title = "Слишком много запросов"
 
+    def __init__(self, retry_after: int = 1) -> None:
+        retry_after = max(1, retry_after)
+        super().__init__(
+            f"Слишком много запросов подряд. Повторите через {retry_after} с.",
+            extra={"retry_after": retry_after},
+        )
+        self.headers = {"Retry-After": str(retry_after)}
+
 
 def problem_response(
     request: Request,
@@ -138,6 +147,7 @@ def register_error_handlers(app: FastAPI) -> None:
             title=exc.title,
             detail=exc.detail,
             extra=exc.extra,
+            headers=exc.headers,
         )
 
     @app.exception_handler(RequestValidationError)

@@ -1,19 +1,21 @@
 """Публичный интерфейс модуля identity. Только его могут вызывать другие модули.
 
 - FastAPI-зависимости для авторизации: `current_user`, `optional_user`, `require_admin`;
+- лимит частоты на пользователя: `limit_by_user`;
 - чтение данных пользователя: `get_user`.
 """
 
 import uuid
 from dataclasses import dataclass
-from typing import Annotated
+from typing import Annotated, Any
 
-from fastapi import Depends
+from fastapi import Depends, Request
 from fastapi.security import APIKeyCookie, HTTPAuthorizationCredentials, HTTPBearer
 
 from app.core.config import settings
 from app.core.db import UnitOfWork
 from app.core.errors import ForbiddenError, UnauthorizedError
+from app.core.ratelimit import Rule, client_ip, enforce
 from app.modules.identity.models import Role
 from app.modules.identity.repository import UserRepository
 from app.modules.identity.security import decode_access_token
@@ -24,6 +26,7 @@ __all__ = [
     "UserDTO",
     "current_user",
     "get_user",
+    "limit_by_user",
     "optional_user",
     "require_admin",
 ]
@@ -68,6 +71,19 @@ async def optional_user(
     if claims is None:
         return None
     return AuthUser(id=claims.user_id, role=claims.role)
+
+
+def limit_by_user(rule: Rule) -> Any:
+    """Зависимость FastAPI: лимит на пользователя (у анонимного — на IP). Лимит на
+    пользователя, а не на IP: за одним NAT (общежитие, мобильный оператор) сидят многие."""
+
+    async def dependency(
+        request: Request, user: Annotated[AuthUser | None, Depends(optional_user)]
+    ) -> None:
+        subject = f"user:{user.id}" if user else f"ip:{client_ip(request)}"
+        await enforce(rule, subject)
+
+    return Depends(dependency)
 
 
 async def current_user(

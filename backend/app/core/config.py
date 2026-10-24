@@ -35,6 +35,9 @@ class Settings(BaseSettings):
     seatmap_cache_ttl_seconds: int = 24 * 60 * 60  # без изменений модель чтения истекает
     sse_heartbeat_seconds: int = 15  # «пустая» строка, чтобы прокси не рвали соединение
 
+    # Ограничение частоты запросов (token bucket в Redis; правила — app/core/ratelimit.py)
+    rate_limit_enabled: bool = True
+
     # Банк-имитатор (оплата в MVP ненастоящая)
     fake_payment_latency_ms: int = 600  # «время ответа банка»
     fake_payment_decline_rate: float = 0.0  # доля случайных отказов (для нагрузочного теста)

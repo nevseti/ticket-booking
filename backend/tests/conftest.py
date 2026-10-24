@@ -3,6 +3,8 @@ import os
 # Настройки читаются при импорте app.*, поэтому окружение задаём до импортов приложения.
 os.environ["ENV"] = "test"
 os.environ["FAKE_PAYMENT_LATENCY_MS"] = "0"  # банк-имитатор отвечает мгновенно
+# Все запросы тестового клиента идут «с одного IP»; лимиты проверяются в test_ratelimit.py.
+os.environ["RATE_LIMIT_ENABLED"] = "false"
 TEST_DATABASE_URL = os.environ.get(
     "TEST_DATABASE_URL", "postgresql+asyncpg://tickets:tickets@localhost:5433/tickets_test"
 )
