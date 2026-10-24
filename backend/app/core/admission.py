@@ -52,4 +52,4 @@ class Admission:
 # миллисекунды, оплата — дольше (шаги саги и «банк»), поэтому очереди раздельные:
 # наплыв кликов по местам не должен лишать оплату шанса начаться.
 HOLDS = Admission("holds", limit=16)
-CHECKOUT = Admission("checkout", limit=12)
+CHECKOUT = Admission("checkout", limit=8)

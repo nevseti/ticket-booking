@@ -55,7 +55,7 @@ def _checkout_out(c: Checkout) -> CheckoutOut:
     "/checkout",
     response_model=CheckoutOut,
     responses=problem_responses(401, 409, 429, 503),
-    dependencies=[limit_by_user(CHECKOUT), admission.CHECKOUT.dependency()],
+    dependencies=[admission.CHECKOUT.dependency(), limit_by_user(CHECKOUT)],
 )
 async def checkout(
     body: CheckoutIn,

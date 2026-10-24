@@ -25,7 +25,7 @@ User = Annotated[AuthUser, Depends(current_user)]
     response_model=HoldOut,
     status_code=status.HTTP_201_CREATED,
     responses=problem_responses(401, 404, 409, 429, 503),
-    dependencies=[limit_by_user(HOLDS), admission.HOLDS.dependency()],
+    dependencies=[admission.HOLDS.dependency(), limit_by_user(HOLDS)],
 )
 async def hold_seat(event_id: uuid.UUID, body: HoldSeatIn, user: User, uow: Uow) -> HoldOut:
     """Удержать место на 10 минут. 409 SEAT_UNAVAILABLE — место уже занял кто-то другой."""
@@ -41,7 +41,7 @@ async def hold_seat(event_id: uuid.UUID, body: HoldSeatIn, user: User, uow: Uow)
     response_model=list[HoldOut],
     status_code=status.HTTP_201_CREATED,
     responses=problem_responses(401, 404, 409, 429, 503),
-    dependencies=[limit_by_user(HOLDS), admission.HOLDS.dependency()],
+    dependencies=[admission.HOLDS.dependency(), limit_by_user(HOLDS)],
 )
 async def hold_zone(event_id: uuid.UUID, body: HoldZoneIn, user: User, uow: Uow) -> list[HoldOut]:
     """Удержать билеты в стоячую зону (Фан-зона, Танцпол) — по количеству."""

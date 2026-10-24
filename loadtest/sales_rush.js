@@ -71,6 +71,20 @@ function takenSeats() {
   return new Set([...body.held, ...body.sold])
 }
 
+// Вежливый клиент: на 503 «перегружен» ждёт Retry-After (со случайной добавкой, чтобы
+// повторы не пришли все разом) и повторяет то же действие — как человек, увидевший
+// «повторите через пару секунд». Без этого отказы порождают шторм повторов.
+function withBackoff(send) {
+  let res = send()
+  for (let retry = 0; retry < 3 && res.status === 503; retry++) {
+    shed.add(1)
+    sleep(Number(res.headers['Retry-After'] || 2) * (1 + Math.random()))
+    res = send()
+  }
+  if (res.status === 503) shed.add(1)
+  return res
+}
+
 function holdSeats(layout, headers) {
   const taken = takenSeats()
   const want = 1 + Math.floor(Math.random() * 3)
@@ -79,16 +93,17 @@ function holdSeats(layout, headers) {
   for (let attempt = 0; attempt < 6 && got < want; attempt++) {
     const seat = pick(pool)
     if (taken.has(seat)) continue
-    const res = http.post(`${BASE}/api/events/${EVENT_ID}/holds`, JSON.stringify({ seat_id: seat }), {
-      headers,
-      tags: { name: 'hold' },
-    })
-    if (res.status === 503) shed.add(1)
+    const res = withBackoff(() =>
+      http.post(`${BASE}/api/events/${EVENT_ID}/holds`, JSON.stringify({ seat_id: seat }), {
+        headers,
+        tags: { name: 'hold' },
+      }),
+    )
     check(res, { 'место: 201 или 409': (r) => r.status === 201 || r.status === 409 })
     if (res.status === 201) {
       got++
       holdOk.add(1)
-    } else {
+    } else if (res.status === 409) {
       holdConflict.add(1)
     }
     taken.add(seat)
@@ -99,10 +114,12 @@ function holdSeats(layout, headers) {
 
 function holdZone(layout, headers) {
   const body = { section_id: pick(layout.zones), quantity: 1 + Math.floor(Math.random() * 2) }
-  const res = http.post(`${BASE}/api/events/${EVENT_ID}/holds/zone`, JSON.stringify(body), {
-    headers,
-    tags: { name: 'hold_zone' },
-  })
+  const res = withBackoff(() =>
+    http.post(`${BASE}/api/events/${EVENT_ID}/holds/zone`, JSON.stringify(body), {
+      headers,
+      tags: { name: 'hold_zone' },
+    }),
+  )
   check(res, { 'зона: 201 или 409': (r) => r.status === 201 || r.status === 409 })
   return res.status === 201 ? res.json().length : 0
 }
@@ -120,16 +137,15 @@ export function buyer(layout) {
 
   sleep(1 + Math.random() * 2) // проверяет выбор, вводит карту
   const card = Math.random() < 0.1 ? 'tok_decline' : 'tok_ok'
-  const res = http.post(
-    `${BASE}/api/checkout`,
-    JSON.stringify({ event_id: EVENT_ID, payment_token: card }),
-    {
-      headers: { ...headers, 'Idempotency-Key': uuid4() },
+  // Ключ идемпотентности один на все повторы: повтор не спишет деньги второй раз.
+  const key = uuid4()
+  const res = withBackoff(() =>
+    http.post(`${BASE}/api/checkout`, JSON.stringify({ event_id: EVENT_ID, payment_token: card }), {
+      headers: { ...headers, 'Idempotency-Key': key },
       tags: { name: 'checkout' },
       timeout: '30s',
-    },
+    }),
   )
-  if (res.status === 503) shed.add(1)
   const state = res.status === 200 ? res.json().state : null
   const expected = state === 'completed' || (state === 'failed' && card === 'tok_decline')
   check(res, { 'оплата: сага завершилась как ожидалось': () => expected })
