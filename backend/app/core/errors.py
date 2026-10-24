@@ -115,6 +115,19 @@ class RateLimitedError(AppError):
         self.headers = {"Retry-After": str(retry_after)}
 
 
+class ServiceOverloadedError(AppError):
+    status_code = 503
+    code = "SERVICE_OVERLOADED"
+    title = "Сервис перегружен"
+    headers = {"Retry-After": "2"}  # noqa: RUF012 — заголовок одинаков для всех экземпляров
+
+    def __init__(self) -> None:
+        super().__init__(
+            "Сейчас очень много покупателей. Повторите через пару секунд.",
+            extra={"retry_after": 2},
+        )
+
+
 def problem_response(
     request: Request,
     *,
@@ -179,19 +192,19 @@ def register_error_handlers(app: FastAPI) -> None:
         )
 
     @app.exception_handler(PoolTimeoutError)
-    async def handle_overload(request: Request, exc: PoolTimeoutError) -> JSONResponse:
-        # Все соединения с БД заняты дольше db_pool_timeout: сбрасываем нагрузку честным
-        # 503 с подсказкой, когда повторить. Начатая оплата не теряется: сагу доведёт
-        # восстановление в воркере (ADR 0005).
-        log.warning("service_overloaded", path=request.url.path)
+    async def handle_pool_timeout(request: Request, exc: PoolTimeoutError) -> JSONResponse:
+        # Страховка: обычно нагрузку сбрасывает admission control на входе (core/admission).
+        # Если всё же все соединения с БД заняты дольше db_pool_timeout — 503, а не 500.
+        log.warning("db_pool_exhausted", path=request.url.path)
+        error = ServiceOverloadedError()
         return problem_response(
             request,
-            status=503,
-            code="SERVICE_OVERLOADED",
-            title="Сервис перегружен",
-            detail="Сейчас очень много покупателей. Повторите через пару секунд.",
-            extra={"retry_after": 2},
-            headers={"Retry-After": "2"},
+            status=error.status_code,
+            code=error.code,
+            title=error.title,
+            detail=error.detail,
+            extra=error.extra,
+            headers=error.headers,
         )
 
     @app.exception_handler(Exception)

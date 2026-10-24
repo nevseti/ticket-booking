@@ -1331,6 +1331,21 @@
                 }
               }
             }
+          },
+          "503": {
+            "description": "Сервис перегружен",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
           }
         }
       }
@@ -1450,6 +1465,21 @@
           },
           "429": {
             "description": "Слишком много запросов",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Сервис перегружен",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1921,6 +1951,21 @@
           },
           "429": {
             "description": "Слишком много запросов",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Сервис перегружен",
             "content": {
               "application/problem+json": {
                 "schema": {

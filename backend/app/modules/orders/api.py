@@ -4,6 +4,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Header, Query
 from sqlalchemy import select
 
+from app.core import admission
 from app.core.db import UnitOfWork, get_uow
 from app.core.errors import NotFoundError, problem_responses
 from app.core.ratelimit import CHECKOUT, TICKET_VERIFY, limit_by_ip
@@ -53,8 +54,8 @@ def _checkout_out(c: Checkout) -> CheckoutOut:
 @router.post(
     "/checkout",
     response_model=CheckoutOut,
-    responses=problem_responses(401, 409, 429),
-    dependencies=[limit_by_user(CHECKOUT)],
+    responses=problem_responses(401, 409, 429, 503),
+    dependencies=[limit_by_user(CHECKOUT), admission.CHECKOUT.dependency()],
 )
 async def checkout(
     body: CheckoutIn,

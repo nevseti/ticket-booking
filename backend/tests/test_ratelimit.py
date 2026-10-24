@@ -80,3 +80,26 @@ async def test_redis_failure_does_not_block_requests(monkeypatch: pytest.MonkeyP
     monkeypatch.setattr(ratelimit, "_bucket", broken)
 
     assert (await hit(Rule("test", capacity=1, per_seconds=60), "x")).allowed
+
+
+async def test_admission_sheds_only_new_work() -> None:
+    """Сверх лимита одновременных запросов — сразу 503, а начатые запросы доживают."""
+    from app.core.admission import Admission
+    from app.core.errors import ServiceOverloadedError
+
+    gate = Admission("test", limit=2)
+    first, second = gate.admit(), gate.admit()
+    await anext(first)
+    await anext(second)
+
+    with pytest.raises(ServiceOverloadedError):
+        await anext(gate.admit())
+    assert gate.in_flight == 2  # отказ не занял место
+
+    await first.aclose()  # первый запрос закончился — место освободилось
+    third = gate.admit()
+    await anext(third)
+    assert gate.in_flight == 2
+    await second.aclose()
+    await third.aclose()
+    assert gate.in_flight == 0

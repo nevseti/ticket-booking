@@ -38,7 +38,8 @@ k6_run() {
      sleep 10
    done) > "$RESULTS/$STAMP-$name-stats.csv" &
   local stats_pid=$!
-  docker run --rm --network "$NETWORK" --memory 256m \
+  # --user: k6 в образе работает под своим uid и не смог бы писать в loadtest/results.
+  docker run --rm --network "$NETWORK" --memory 256m --user "$(id -u):$(id -g)" \
     -v "$LT:/scripts:ro" -v "$DATA:/data" -v "$RESULTS:/results" \
     -e K6_WEB_DASHBOARD=true -e K6_WEB_DASHBOARD_EXPORT="/results/$STAMP-$name-report.html" \
     "$@" "$K6_IMAGE" run --quiet --summary-export "/results/$STAMP-$name-summary.json" \

@@ -4,6 +4,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, status
 from fastapi.responses import StreamingResponse
 
+from app.core import admission
 from app.core.db import UnitOfWork, get_uow
 from app.core.errors import problem_responses
 from app.core.ratelimit import HOLDS
@@ -23,8 +24,8 @@ User = Annotated[AuthUser, Depends(current_user)]
     "/events/{event_id}/holds",
     response_model=HoldOut,
     status_code=status.HTTP_201_CREATED,
-    responses=problem_responses(401, 404, 409, 429),
-    dependencies=[limit_by_user(HOLDS)],
+    responses=problem_responses(401, 404, 409, 429, 503),
+    dependencies=[limit_by_user(HOLDS), admission.HOLDS.dependency()],
 )
 async def hold_seat(event_id: uuid.UUID, body: HoldSeatIn, user: User, uow: Uow) -> HoldOut:
     """Удержать место на 10 минут. 409 SEAT_UNAVAILABLE — место уже занял кто-то другой."""
@@ -39,8 +40,8 @@ async def hold_seat(event_id: uuid.UUID, body: HoldSeatIn, user: User, uow: Uow)
     "/events/{event_id}/holds/zone",
     response_model=list[HoldOut],
     status_code=status.HTTP_201_CREATED,
-    responses=problem_responses(401, 404, 409, 429),
-    dependencies=[limit_by_user(HOLDS)],
+    responses=problem_responses(401, 404, 409, 429, 503),
+    dependencies=[limit_by_user(HOLDS), admission.HOLDS.dependency()],
 )
 async def hold_zone(event_id: uuid.UUID, body: HoldZoneIn, user: User, uow: Uow) -> list[HoldOut]:
     """Удержать билеты в стоячую зону (Фан-зона, Танцпол) — по количеству."""

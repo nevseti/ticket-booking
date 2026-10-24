@@ -18,9 +18,10 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://tickets:tickets@localhost:5433/tickets"
     db_pool_size: int = 10
     db_max_overflow: int = 5
-    # Сколько запрос ждёт свободное соединение с БД. При перегрузке лучше быстро ответить
-    # 503 «повторите», чем держать клиента 30 с и упасть с 500 (нашёл нагрузочный тест).
-    db_pool_timeout: float = 5.0
+    # Сколько запрос ждёт свободное соединение с БД. Нагрузку сбрасывает admission control
+    # на входе (core/admission.py); здесь ожидание длинное, чтобы не обрывать начатые
+    # операции (шаги саги оплаты) посередине.
+    db_pool_timeout: float = 30.0
 
     redis_url: str = "redis://localhost:6379/0"
     rabbitmq_url: str = "amqp://guest:guest@localhost:5672/"
