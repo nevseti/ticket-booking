@@ -51,5 +51,5 @@ class Admission:
 # Лимиты на процесс. В пуле 10 соединений с БД; захват места держит соединение
 # миллисекунды, оплата — дольше (шаги саги и «банк»), поэтому очереди раздельные:
 # наплыв кликов по местам не должен лишать оплату шанса начаться.
-HOLDS = Admission("holds", limit=16)
-CHECKOUT = Admission("checkout", limit=8)
+HOLDS = Admission("holds", limit=24)
+CHECKOUT = Admission("checkout", limit=12)

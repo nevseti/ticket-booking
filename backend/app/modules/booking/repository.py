@@ -37,6 +37,13 @@ _CAPTURE_SQL = text(f"""
     RETURNING {_HOLD_COLUMNS}
 """)
 
+# Повторная проверка продажи — отдельным оператором (см. try_capture).
+_SOLD_SQL = text("""
+    SELECT 1 FROM booking.sold_seats WHERE event_id = :event_id AND seat_id = :seat_id
+""")
+
+_DROP_HOLD_SQL = text("DELETE FROM booking.holds WHERE id = :id")
+
 # Ленивое истечение: now() нельзя использовать в предикате индекса, поэтому просроченное
 # удержание остаётся «active», пока его не погасят — здесь или фоновым уборщиком.
 _EXPIRE_SEATS_SQL = text(f"""
@@ -103,7 +110,18 @@ class HoldRepository:
                 },
             )
         ).first()
-        return _row(row) if row else None
+        if row is None:
+            return None
+        # Гонка с покупкой (найдена нагрузочным тестом). В READ COMMITTED NOT EXISTS(sold)
+        # выше вычислен по снимку на начало оператора. Если в этот момент покупка этого
+        # места ещё не зафиксирована, вставка ждёт её на уникальном индексе — а когда
+        # покупка фиксируется (её удержание больше не active), вставка проходит. Новый
+        # оператор видит новый снимок, а значит и эту покупку: такое удержание отменяем.
+        sold = await self._session.scalar(_SOLD_SQL, {"event_id": event_id, "seat_id": seat_id})
+        if sold:
+            await self._session.execute(_DROP_HOLD_SQL, {"id": row.id})
+            return None
+        return _row(row)
 
     async def active_on_seat(self, event_id: uuid.UUID, seat_id: int) -> HoldRow | None:
         row = (

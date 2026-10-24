@@ -22,6 +22,18 @@ K6_IMAGE=grafana/k6:2.3.0
 compose() { docker compose "$@"; }
 psql_() { compose exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" "$@"' -- "$@"; }
 
+# Уборка при любом выходе (в т. ч. при ошибке посреди прогона): тестовое мероприятие
+# видно на публичной афише. Данные остаются, только если нарушен инвариант — для разбора.
+KEEP_DATA=0
+on_exit() {
+  if [ "$KEEP_DATA" = 1 ]; then
+    echo "Инвариант нарушен — данные теста оставлены для разбора: python -m scripts.loadtest cleanup" >&2
+  else
+    compose exec -T api python -m scripts.loadtest cleanup || true
+  fi
+}
+trap on_exit EXIT
+
 prepare() {
   compose exec -T api python -m scripts.loadtest prepare "$@" --out /tmp/loadtest-data.json
   compose cp api:/tmp/loadtest-data.json "$DATA/loadtest-data.json" >/dev/null
@@ -71,7 +83,9 @@ wait_sagas() {
     stuck=$(psql_ -tAc "SELECT count(*) FROM orders.checkouts WHERE event_id = '$EVENT_ID' AND state IN ('started', 'paid')")
   done
   echo "после восстановления саг: $stuck в промежуточном состоянии" | tee -a "$RESULTS/$STAMP-rush-sagas.txt"
-  compose logs worker --since 10m 2>/dev/null | grep -c '"saga_recovery_done"'     | sed 's/^/запусков восстановления, которые довели саги: /' | tee -a "$RESULTS/$STAMP-rush-sagas.txt"
+  # grep -c при нуле совпадений завершается с кодом 1 — при set -e это оборвало бы скрипт.
+  runs=$(compose logs worker --since 10m 2>/dev/null | grep -c '"saga_recovery_done"' || true)
+  echo "запусков восстановления, которые довели саги: $runs" | tee -a "$RESULTS/$STAMP-rush-sagas.txt"
 }
 
 case $MODE in
@@ -86,7 +100,7 @@ case $MODE in
     sleep 20 # уборщик удержаний (раз в 15 с) гасит брошенные удержания
     psql_ -v event="$EVENT_ID" < "$LT/verify.sql" | tee "$RESULTS/$STAMP-rush-verify.txt"
     if grep -qE '\| f$' "$RESULTS/$STAMP-rush-verify.txt"; then
-      echo "Инвариант нарушен — данные теста оставлены для разбора (cleanup вручную)." >&2
+      KEEP_DATA=1
       exit 1
     fi
     ;;
@@ -104,5 +118,4 @@ case $MODE in
     ;;
 esac
 
-compose exec -T api python -m scripts.loadtest cleanup
 echo "Результаты: $RESULTS/$STAMP-*"

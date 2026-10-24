@@ -351,3 +351,50 @@ async def test_hold_writes_outbox_event(client: AsyncClient, concert: str, layou
         ).first()
     assert row.event_type == "booking.seats_held"
     assert row.payload == {"event_id": concert, "seat_ids": [seat_id]}
+
+
+async def test_capture_racing_with_purchase_does_not_hold_sold_seat(
+    client: AsyncClient, concert: str, layout: dict
+) -> None:
+    """Гонка, найденная нагрузочным тестом: покупатель B захватывает место, пока покупка A
+    ещё не зафиксирована. NOT EXISTS(sold) в захвате B вычислен по снимку ДО покупки, а
+    вставка ждёт на уникальном индексе, пока A не закончит, — и после фиксации A проходит.
+    Итог без защиты: активное удержание на проданном месте."""
+    from app.modules.booking import facade as booking_facade
+    from app.modules.booking.repository import HoldRepository
+
+    event_id = uuid.UUID(concert)
+    seat_id = layout["seats_in"]("111")[0]
+    buyer_a = uuid.uuid4()
+    async with UnitOfWork() as uow:
+        hold_a = await BookingService(uow).hold_seat(buyer_a, event_id, seat_id)
+        await uow.commit()
+
+    purchase = UnitOfWork()
+    await purchase.__aenter__()
+    await booking_facade.confirm_sale(purchase, buyer_a, event_id, [hold_a.id], uuid.uuid4())
+
+    async def capture_b():
+        async with UnitOfWork() as uow:
+            hold = await HoldRepository(uow.session).try_capture(
+                event_id, seat_id, uuid.uuid4(), 600
+            )
+            await uow.commit()
+            return hold
+
+    racing = asyncio.create_task(capture_b())
+    await asyncio.sleep(0.3)  # B уже ждёт на индексе, пока покупка A не закончится
+    assert not racing.done()
+    await purchase.commit()
+    await purchase.__aexit__(None, None, None)
+
+    assert await racing is None
+    async with UnitOfWork() as uow:
+        active = await uow.session.scalar(
+            text("""
+                SELECT count(*) FROM booking.holds
+                WHERE event_id = :e AND seat_id = :s AND status = 'active'
+            """),
+            {"e": event_id, "s": seat_id},
+        )
+    assert active == 0
