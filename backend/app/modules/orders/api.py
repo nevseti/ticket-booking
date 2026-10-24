@@ -6,8 +6,9 @@ from sqlalchemy import select
 
 from app.core.db import UnitOfWork, get_uow
 from app.core.errors import NotFoundError, problem_responses
+from app.core.ratelimit import CHECKOUT, TICKET_VERIFY, limit_by_ip
 from app.modules.catalog import facade as catalog
-from app.modules.identity.facade import AuthUser, current_user
+from app.modules.identity.facade import AuthUser, current_user, limit_by_user
 from app.modules.orders.models import Checkout, Order, Ticket
 from app.modules.orders.payments import PaymentGateway, get_gateway
 from app.modules.orders.saga import CheckoutSaga
@@ -49,7 +50,12 @@ def _checkout_out(c: Checkout) -> CheckoutOut:
     )
 
 
-@router.post("/checkout", response_model=CheckoutOut, responses=problem_responses(401, 409))
+@router.post(
+    "/checkout",
+    response_model=CheckoutOut,
+    responses=problem_responses(401, 409, 429),
+    dependencies=[limit_by_user(CHECKOUT)],
+)
 async def checkout(
     body: CheckoutIn,
     user: User,
@@ -131,7 +137,12 @@ async def get_order(order_id: uuid.UUID, user: User, uow: Uow) -> OrderDetail:
     )
 
 
-@router.get("/tickets/verify", response_model=TicketCheck)
+@router.get(
+    "/tickets/verify",
+    response_model=TicketCheck,
+    responses=problem_responses(429),
+    dependencies=[limit_by_ip(TICKET_VERIFY)],
+)
 async def verify_ticket(code: Annotated[str, Query(max_length=100)], uow: Uow) -> TicketCheck:
     """Проверка билета на входе (контролёр сканирует QR): подпись и наличие в БД."""
     ticket_id = parse_code(code)

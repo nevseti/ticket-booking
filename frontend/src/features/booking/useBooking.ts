@@ -28,6 +28,8 @@ const MESSAGES: Record<string, (e: ApiError) => string> = {
   SALES_CLOSED: () => 'Продажи на это мероприятие сейчас закрыты',
   SEAT_NOT_FOR_SALE: () => 'Это место не продаётся на данное мероприятие',
   UNAUTHORIZED: () => 'Войдите, чтобы выбирать места',
+  RATE_LIMITED: (e) =>
+    `Слишком много действий подряд — подождите ${e.problem.retry_after ?? 1} с и попробуйте снова`,
 }
 
 export function bookingErrorMessage(error: unknown): string {
