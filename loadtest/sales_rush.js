@@ -19,6 +19,8 @@ const holdConflict = new Counter('holds_conflict') // место успели з
 const purchases = new Counter('purchases_completed')
 const declined = new Counter('purchases_declined') // отказ банка → компенсация саги
 const unexpected = new Rate('purchase_unexpected_failure')
+// 503 SERVICE_OVERLOADED: сервер честно сбросил нагрузку (пул соединений с БД исчерпан)
+const shed = new Counter('requests_shed_503')
 
 export const options = {
   setupTimeout: '60s',
@@ -81,6 +83,7 @@ function holdSeats(layout, headers) {
       headers,
       tags: { name: 'hold' },
     })
+    if (res.status === 503) shed.add(1)
     check(res, { 'место: 201 или 409': (r) => r.status === 201 || r.status === 409 })
     if (res.status === 201) {
       got++
@@ -126,6 +129,7 @@ export function buyer(layout) {
       timeout: '30s',
     },
   )
+  if (res.status === 503) shed.add(1)
   const state = res.status === 200 ? res.json().state : null
   const expected = state === 'completed' || (state === 'failed' && card === 'tok_decline')
   check(res, { 'оплата: сага завершилась как ожидалось': () => expected })

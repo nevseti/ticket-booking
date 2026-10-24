@@ -57,6 +57,22 @@ wait_worker() {
   echo "outbox не опустел за 2 минуты: $left событий" >&2
 }
 
+wait_sagas() {
+  # Под перегрузкой клиент может бросить оплату по таймауту, и сага останется посередине
+  # (деньги списаны, заказа ещё нет). Её доводит восстановление в воркере: раз в 60 с
+  # берёт саги старше 120 с. Ждём, пока все саги придут в конечное состояние.
+  local stuck
+  stuck=$(psql_ -tAc "SELECT count(*) FROM orders.checkouts WHERE event_id = '$EVENT_ID' AND state IN ('started', 'paid')")
+  echo "саг в промежуточном состоянии после теста: $stuck" | tee "$RESULTS/$STAMP-rush-sagas.txt"
+  for _ in $(seq 1 60); do
+    [ "$stuck" = "0" ] && break
+    sleep 5
+    stuck=$(psql_ -tAc "SELECT count(*) FROM orders.checkouts WHERE event_id = '$EVENT_ID' AND state IN ('started', 'paid')")
+  done
+  echo "после восстановления саг: $stuck в промежуточном состоянии" | tee -a "$RESULTS/$STAMP-rush-sagas.txt"
+  compose logs worker --since 10m 2>/dev/null | grep -c '"saga_recovery_done"'     | sed 's/^/запусков восстановления, которые довели саги: /' | tee -a "$RESULTS/$STAMP-rush-sagas.txt"
+}
+
 case $MODE in
   rush)
     BUYERS=${2:-150}
@@ -64,8 +80,14 @@ case $MODE in
     prepare --users 3000
     k6_run rush sales_rush.js -e BUYERS="$BUYERS" -e VIEWERS="$VIEWERS"
     wait_worker
+    wait_sagas
+    wait_worker # восстановленные саги пишут свои события
     sleep 20 # уборщик удержаний (раз в 15 с) гасит брошенные удержания
     psql_ -v event="$EVENT_ID" < "$LT/verify.sql" | tee "$RESULTS/$STAMP-rush-verify.txt"
+    if grep -qE '\| f$' "$RESULTS/$STAMP-rush-verify.txt"; then
+      echo "Инвариант нарушен — данные теста оставлены для разбора (cleanup вручную)." >&2
+      exit 1
+    fi
     ;;
   read)
     RATE=${2:-150}

@@ -7,6 +7,7 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict
+from sqlalchemy.exc import TimeoutError as PoolTimeoutError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 log = structlog.get_logger()
@@ -34,6 +35,7 @@ _STATUS_DESCRIPTIONS = {
     409: "Конфликт",
     422: "Ошибка валидации",
     429: "Слишком много запросов",
+    503: "Сервис перегружен",
 }
 
 
@@ -174,6 +176,22 @@ def register_error_handlers(app: FastAPI) -> None:
             code="HTTP_ERROR",
             title=str(exc.detail),
             headers=getattr(exc, "headers", None),
+        )
+
+    @app.exception_handler(PoolTimeoutError)
+    async def handle_overload(request: Request, exc: PoolTimeoutError) -> JSONResponse:
+        # Все соединения с БД заняты дольше db_pool_timeout: сбрасываем нагрузку честным
+        # 503 с подсказкой, когда повторить. Начатая оплата не теряется: сагу доведёт
+        # восстановление в воркере (ADR 0005).
+        log.warning("service_overloaded", path=request.url.path)
+        return problem_response(
+            request,
+            status=503,
+            code="SERVICE_OVERLOADED",
+            title="Сервис перегружен",
+            detail="Сейчас очень много покупателей. Повторите через пару секунд.",
+            extra={"retry_after": 2},
+            headers={"Retry-After": "2"},
         )
 
     @app.exception_handler(Exception)
