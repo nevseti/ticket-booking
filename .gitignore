@@ -30,3 +30,6 @@ Thumbs.db
 loadtest/results/
 loadtest/tokens.json
 .claude/settings.local.json
+
+# Нагрузочный тест: токены тестовых пользователей не коммитим
+loadtest/data/

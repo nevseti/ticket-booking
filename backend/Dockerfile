@@ -23,6 +23,8 @@ COPY alembic.ini ./
 COPY migrations ./migrations
 COPY app ./app
 COPY worker ./worker
+# Служебные скрипты: выгрузка OpenAPI, подготовка нагрузочного теста (scripts/loadtest.py)
+COPY scripts ./scripts
 
 RUN useradd --system --uid 10001 --no-create-home app
 USER app
