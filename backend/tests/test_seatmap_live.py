@@ -183,3 +183,27 @@ def test_slow_viewer_gets_resync_instead_of_backlog() -> None:
 
     # Очередь переполнилась → накопленное выброшено, вместо него одно «перечитай снимок».
     assert queue.get_nowait() == RESYNC and queue.empty()
+
+
+async def test_unchanged_snapshot_is_served_from_memory(
+    client: AsyncClient, concert: str, layout: dict, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Пока версия не изменилась, полный снимок из Redis не перечитывается."""
+    first = await from_redis(concert)
+    calls = 0
+    original = redis_client.hgetall
+
+    async def counting(*args, **kwargs):
+        nonlocal calls
+        calls += 1
+        return await original(*args, **kwargs)
+
+    monkeypatch.setattr(redis_client, "hgetall", counting)
+    assert await from_redis(concert) == first
+    assert calls == 0
+
+    await hold(client, concert, layout["seats_in"]("112")[0], auth())
+    await sync_seatmap()
+    changed = await from_redis(concert)
+
+    assert calls == 1 and changed["version"] == first["version"] + 1

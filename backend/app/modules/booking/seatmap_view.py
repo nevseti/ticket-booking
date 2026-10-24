@@ -25,6 +25,7 @@ PostgreSQL: API — при чтении, воркер — при событии.
 
 import time
 import uuid
+from collections import OrderedDict
 from typing import Any
 
 import structlog
@@ -192,20 +193,39 @@ async def status_from_db(uow: UnitOfWork, event_id: uuid.UUID) -> SeatmapStatus:
     return _parse({**raw, "v": "0"}, zones.capacity)
 
 
+# Последний прочитанный снимок каждого мероприятия в этом процессе. Схему читают тысячи
+# раз между изменениями, поэтому запрос сперва узнаёт только версию (HGET v — несколько
+# байт), и если она не изменилась, снимок отдаётся из памяти без HGETALL и разбора тысяч
+# полей. Нагрузочный тест: без этого чтение из Redis проигрывало чтению из PostgreSQL.
+_SNAPSHOTS_LIMIT = 64
+_snapshots: OrderedDict[uuid.UUID, SeatmapStatus] = OrderedDict()
+
+
+def _remember(event_id: uuid.UUID, status: SeatmapStatus) -> SeatmapStatus:
+    _snapshots[event_id] = status
+    _snapshots.move_to_end(event_id)
+    while len(_snapshots) > _SNAPSHOTS_LIMIT:
+        _snapshots.popitem(last=False)
+    return status
+
+
 async def read_status(uow: UnitOfWork, event_id: uuid.UUID) -> SeatmapStatus:
     """Занятость зала из модели чтения; при её отсутствии — построить из БД.
     Если Redis недоступен — читаем из PostgreSQL: сайт работает, просто медленнее."""
     if settings.seatmap_read_model == "db":
         return await status_from_db(uow, event_id)
-    zones = await catalog.standing_zones(uow)
     key = projection_key(event_id)
     try:
-        raw = await redis_client.hgetall(key)
-        if not raw:
+        version = await redis_client.hget(key, "v")
+        cached = _snapshots.get(event_id)
+        if version is not None and cached is not None and cached.version == int(version):
+            return cached
+        if version is None:
             await build(uow, event_id)
-            raw = await redis_client.hgetall(key)
+        raw = await redis_client.hgetall(key)
         if raw:
-            return _parse(raw, zones.capacity)
+            zones = await catalog.standing_zones(uow)
+            return _remember(event_id, _parse(raw, zones.capacity))
     except RedisError as exc:
         log.warning("seatmap_read_model_unavailable", error=str(exc))
     return await status_from_db(uow, event_id)
