@@ -17,7 +17,7 @@ from sqlalchemy import (
     func,
     text,
 )
-from sqlalchemy.dialects.postgresql import ARRAY, UUID
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db import Base
@@ -57,6 +57,10 @@ class Venue(Base):
     rink_width: Mapped[float] = mapped_column(Float)
     rink_height: Mapped[float] = mapped_column(Float)
     rink_radius: Mapped[float] = mapped_column(Float)
+    # Версия схемы (venue_layout.LAYOUT_VERSION): устаревшую seed-venue перестраивает.
+    layout_version: Mapped[int] = mapped_column(SmallInteger, server_default="1")
+    # Корпоративные ложи — только рисуются на схеме: [{x, y, width, height}]
+    boxes: Mapped[list[dict[str, float]]] = mapped_column(JSONB, server_default="[]")
 
 
 class PriceCategory(Base):

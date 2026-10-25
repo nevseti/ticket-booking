@@ -4,6 +4,7 @@
  * Ticket Booking API
  * OpenAPI spec version: dev
  */
+import type { BoxOut } from './boxOut';
 import type { CategoryOut } from './categoryOut';
 import type { HallConfigOut } from './hallConfigOut';
 import type { RinkOut } from './rinkOut';
@@ -22,6 +23,7 @@ export interface VenueLayout {
   height: number;
   rink: RinkOut;
   stage_path: string;
+  boxes: BoxOut[];
   categories: CategoryOut[];
   hall_configs: HallConfigOut[];
   sections: SectionOut[];

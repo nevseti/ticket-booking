@@ -102,7 +102,9 @@ _build = redis_client.register_script(_BUILD)
 
 
 def projection_key(event_id: uuid.UUID) -> str:
-    return f"seatmap:{event_id}"
+    # Версия схемы зала в ключе: после перестройки зала (новые id мест) старые проекции
+    # просто перестают читаться и вытесняются по TTL.
+    return f"seatmap:v{catalog.LAYOUT_VERSION}:{event_id}"
 
 
 def live_channel(event_id: uuid.UUID) -> str:

@@ -61,6 +61,15 @@ class RinkOut(BaseModel):
     radius: float
 
 
+class BoxOut(BaseModel):
+    """Корпоративная ложа: рисуется на схеме, в продажу не поступает."""
+
+    x: float
+    y: float
+    width: float
+    height: float
+
+
 class HallConfigOut(BaseModel):
     id: HallConfig
     name: str
@@ -80,6 +89,7 @@ class VenueLayout(BaseModel):
     height: int
     rink: RinkOut
     stage_path: str
+    boxes: list[BoxOut]
     categories: list[CategoryOut]
     hall_configs: list[HallConfigOut]
     sections: list[SectionOut]

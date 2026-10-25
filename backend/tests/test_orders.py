@@ -36,7 +36,7 @@ async def scalar(sql: str, **params: Any) -> Any:
 
 async def test_successful_purchase(client: AsyncClient, concert: str, layout: dict) -> None:
     me = auth()
-    seats = layout["seats_in"]("103")[:2]
+    seats = layout["seats_in"]("V02")[:2]  # VIP-прослойка между ярусами
     for seat_id in seats:
         await hold(client, concert, seat_id, me)
     dance = layout["zone"]("Танцпол")

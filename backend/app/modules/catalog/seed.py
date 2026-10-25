@@ -4,7 +4,8 @@ from dataclasses import dataclass
 from datetime import datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import delete, insert, select, update
+import structlog
+from sqlalchemy import delete, insert, select, text, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -18,16 +19,19 @@ from app.modules.catalog.models import (
     Section,
     Venue,
 )
-from app.modules.catalog.venue_layout import build_arena
+from app.modules.catalog.reference import reset_reference_cache
+from app.modules.catalog.venue_layout import LAYOUT_VERSION, LOUNGE, VIP, VenueSpec, build_arena
 
 MSK = ZoneInfo("Europe/Moscow")
 
+log = structlog.get_logger()
+
 
 async def seed_venue(session: AsyncSession) -> int:
-    """Создать площадку со схемой зала. Идемпотентно: если площадка есть — ничего не делает.
+    """Создать площадку со схемой зала или перестроить устаревшую. Идемпотентно.
 
     Ценовые категории обновляются всегда (upsert): их названия и цвета берутся из кода.
-    Возвращает число созданных мест (0, если площадка уже была).
+    Возвращает число созданных мест (0 — площадка уже актуальна).
     """
     spec = build_arena()
     upsert = pg_insert(PriceCategory).values(
@@ -39,28 +43,40 @@ async def seed_venue(session: AsyncSession) -> int:
             set_={"name": upsert.excluded.name, "color": upsert.excluded.color},
         )
     )
-    if await session.scalar(select(Venue.id).limit(1)) is not None:
+    venue = await session.scalar(select(Venue).limit(1))
+    if venue is None:
+        venue = Venue()
+        _apply_geometry(venue, spec)
+        session.add(venue)
+        await session.flush()
+        return await _insert_layout(session, venue.id, spec)
+    if venue.layout_version >= LAYOUT_VERSION:
         return 0
+    created = await _relayout(session, venue, spec)
+    reset_reference_cache()  # id мест изменились — кэш справочника этого процесса устарел
+    return created
 
-    venue = Venue(
-        name=spec.name,
-        address=spec.address,
-        width=spec.width,
-        height=spec.height,
-        stage_path=spec.stage_path,
-        rink_x=spec.rink.x,
-        rink_y=spec.rink.y,
-        rink_width=spec.rink.width,
-        rink_height=spec.rink.height,
-        rink_radius=spec.rink.radius,
-    )
-    session.add(venue)
-    await session.flush()
 
+def _apply_geometry(venue: Venue, spec: VenueSpec) -> None:
+    venue.name = spec.name
+    venue.address = spec.address
+    venue.width = spec.width
+    venue.height = spec.height
+    venue.stage_path = spec.stage_path
+    venue.rink_x = spec.rink.x
+    venue.rink_y = spec.rink.y
+    venue.rink_width = spec.rink.width
+    venue.rink_height = spec.rink.height
+    venue.rink_radius = spec.rink.radius
+    venue.boxes = [{"x": b.x, "y": b.y, "width": b.width, "height": b.height} for b in spec.boxes]
+    venue.layout_version = LAYOUT_VERSION
+
+
+async def _insert_layout(session: AsyncSession, venue_id: int, spec: VenueSpec) -> int:
     seat_rows = []
     for order, section_spec in enumerate(spec.sections, start=1):
         section = Section(
-            venue_id=venue.id,
+            venue_id=venue_id,
             code=section_spec.code,
             name=section_spec.name,
             path=section_spec.path,
@@ -87,6 +103,94 @@ async def seed_venue(session: AsyncSession) -> int:
     return len(seat_rows)
 
 
+# Сначала собираем соответствие «старое место → новое» по адресу (сектор, ряд, номер).
+_SEAT_KEYS_SQL = text("""
+    SELECT s.id, sec.code, s.row, s.number
+    FROM catalog.seats s JOIN catalog.sections sec ON sec.id = s.section_id
+""")
+
+
+async def _relayout(session: AsyncSession, venue: Venue, spec: VenueSpec) -> int:
+    """Перестроить схему зала, сохранив уже проданное.
+
+    Это служебная операция того же рода, что миграция БД, поэтому она работает с таблицами
+    бронирования и заказов напрямую, мимо фасадов модулей. Места получают НОВЫЕ id
+    (последовательность не сбрасывается), и проданные места, удержания и билеты переносятся
+    на места с тем же адресом «сектор, ряд, номер». Если такого места в новой схеме нет:
+    проданное место снимается, удержание гасится, а билет остаётся как есть — в нём
+    сохранены сектор, ряд и номер текстом.
+    """
+    old = {row.id: (row.code, row.row, row.number) for row in await session.execute(_SEAT_KEYS_SQL)}
+    await session.execute(delete(Seat))
+    await session.execute(delete(Section).where(Section.venue_id == venue.id))
+    _apply_geometry(venue, spec)
+    created = await _insert_layout(session, venue.id, spec)
+    new = {(row.code, row.row, row.number): row.id for row in await session.execute(_SEAT_KEYS_SQL)}
+    mapping = [(old_id, new[key]) for old_id, key in old.items() if key in new]
+
+    await session.execute(
+        text("CREATE TEMP TABLE seat_map (old_id int PRIMARY KEY, new_id int) ON COMMIT DROP")
+    )
+    if mapping:
+        await session.execute(
+            text("INSERT INTO seat_map SELECT * FROM unnest(CAST(:o AS int[]), CAST(:n AS int[]))"),
+            {"o": [m[0] for m in mapping], "n": [m[1] for m in mapping]},
+        )
+    moved = {}
+    for table in ("booking.sold_seats", "booking.holds", "orders.tickets"):
+        result = await session.execute(
+            text(
+                f"UPDATE {table} t SET seat_id = m.new_id "
+                "FROM seat_map m WHERE t.seat_id = m.old_id"
+            )
+        )
+        moved[table] = result.rowcount
+    lost_sold = await session.execute(
+        text("DELETE FROM booking.sold_seats WHERE seat_id NOT IN (SELECT id FROM catalog.seats)")
+    )
+    lost_holds = await session.execute(
+        text("""
+            UPDATE booking.holds SET status = 'expired', closed_at = now()
+            WHERE status = 'active' AND seat_id NOT IN (SELECT id FROM catalog.seats)
+        """)
+    )
+    await _ensure_category_prices(session)
+    log.info(
+        "venue_relayout",
+        layout_version=LAYOUT_VERSION,
+        seats=created,
+        moved=moved,
+        sold_removed=lost_sold.rowcount,
+        holds_expired=lost_holds.rowcount,
+    )
+    return created
+
+
+# Новая категория (лаунж) появилась после того, как мероприятия уже созданы: её цена —
+# 75 % от VIP, округлённо до 100 ₽. Без цены места категории не продаются (EventInfo.sells).
+NEW_CATEGORY_PRICES = {LOUNGE: (VIP, 0.75)}
+
+
+async def _ensure_category_prices(session: AsyncSession) -> None:
+    for category, (base, share) in NEW_CATEGORY_PRICES.items():
+        await session.execute(
+            text("""
+                INSERT INTO catalog.event_prices (event_id, price_category_id, price_kopecks)
+                SELECT p.event_id, :category, GREATEST(
+                    CAST(round(p.price_kopecks * CAST(:share AS numeric) / 10000) * 10000 AS int),
+                    10000
+                )
+                FROM catalog.event_prices p
+                WHERE p.price_category_id = :base
+                  AND NOT EXISTS (
+                      SELECT 1 FROM catalog.event_prices x
+                      WHERE x.event_id = p.event_id AND x.price_category_id = :category
+                  )
+            """),
+            {"category": category, "base": base, "share": share},
+        )
+
+
 # --- Демо-афиша --------------------------------------------------------------------------
 
 
@@ -94,16 +198,23 @@ def _at(day: datetime, hour: int, minute: int = 0) -> datetime:
     return datetime.combine(day.date(), time(hour, minute), tzinfo=MSK)
 
 
+def _lounge(vip: int) -> int:
+    """Лаунж на торцах — 75 % от VIP на длинных сторонах, округлённо до 100 ₽."""
+    return round(vip * 0.75 / 100) * 100
+
+
 def stage_prices(
     vip: int, fan: int, dance: int, lower: int, middle: int, upper: int
 ) -> dict[int, int]:
-    """Цены концерта/шоу в рублях: VIP, фан-зона, танцпол, нижний/средний/верхний ярус."""
-    return {1: vip, 2: fan, 3: dance, 4: lower, 5: middle, 6: upper}
+    """Цены концерта/шоу в рублях: VIP, фан-зона, танцпол, нижний/средний/верхний ярус
+    (лаунж считается от VIP)."""
+    return {1: vip, 2: fan, 3: dance, 4: lower, 5: middle, 6: upper, 7: _lounge(vip)}
 
 
 def hockey_prices(vip: int, lower: int, middle: int, upper: int) -> dict[int, int]:
-    """Цены хоккея в рублях: VIP, нижний/средний/верхний ярус (партера на льду нет)."""
-    return {1: vip, 4: lower, 5: middle, 6: upper}
+    """Цены хоккея в рублях: VIP, нижний/средний/верхний ярус (партера на льду нет),
+    лаунж считается от VIP."""
+    return {1: vip, 4: lower, 5: middle, 6: upper, 7: _lounge(vip)}
 
 
 @dataclass(frozen=True)

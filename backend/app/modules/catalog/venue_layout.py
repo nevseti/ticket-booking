@@ -1,6 +1,15 @@
 """Генератор схемы единственной площадки — ледовой арены (по образцу ВТБ Арены).
 
-В центре — ледовая площадка, вокруг — три яруса трибун. Зал работает в двух конфигурациях:
+В центре — ледовая площадка, вокруг трибуны (от поля наружу):
+
+    нижний ярус      10 рядов
+    VIP / лаунж      премиальная «прослойка» в 2 ряда: на длинных сторонах — VIP,
+                     на торцах — лаунж
+    средний ярус     7 рядов
+    ложи             корпоративные ложи вдоль длинных сторон (на схеме, но не в продаже)
+    верхний ярус     7 рядов
+
+Зал работает в двух конфигурациях:
 
     hockey  хоккей: трибуны кольцом вокруг льда, включая западный торец;
     stage   концерт/шоу: у западного торца сцена, трибуны — «подковой» (длинные стороны
@@ -12,6 +21,8 @@
 и не нужен «горячий» счётчик остатка.
 
 Ряды трибун — «смещённые» контуры площадки: прямой участок вдоль борта или дуга на углу.
+Каждый ряд растянут точно от края до края сектора: крайние места лежат на границах сектора,
+поэтому края ровные и у прямых секторов, и у веерных на углах.
 Координаты — в системе SVG (y вниз). Генератор детерминирован.
 """
 
@@ -34,16 +45,21 @@ BOTH = (HallConfig.HOCKEY, HallConfig.STAGE)
 HOCKEY_ONLY = (HallConfig.HOCKEY,)
 STAGE_ONLY = (HallConfig.STAGE,)
 
-WIDTH, HEIGHT = 1720, 1340
-CX, CY = 860.0, 670.0
+# Версия схемы. Растёт при перестройке зала: seed-venue перестраивает схему в существующей
+# БД и переносит на новые места уже проданные (catalog/seed.py).
+LAYOUT_VERSION = 2
+
+WIDTH, HEIGHT = 1790, 1460
+CX, CY = 895.0, 730.0
 
 # Ледовая площадка: полуширина, полувысота, радиус скругления углов
 RINK_A, RINK_B, RINK_R = 330.0, 165.0, 95.0
 
 SEAT_PITCH = 15.0  # расстояние между центрами мест в ряду
 ROW_STEP = 16.0  # расстояние между рядами
-HALF_AISLE = 9.0  # половина ширины прохода между секторами
-PAD = 8.0  # отступ контура сектора от крайних мест
+HALF_AISLE = 11.0  # от границы сектора до центра крайнего места
+OUTLINE_INSET = 5.0  # контур сектора отступает от границы (проход между контурами — 10)
+PAD = 8.0  # отступ контура сектора от первого и последнего ряда
 
 
 @dataclass(frozen=True)
@@ -84,6 +100,16 @@ class RinkSpec:
 
 
 @dataclass(frozen=True)
+class BoxSpec:
+    """Корпоративная ложа: только рисуется на схеме, в продажу не поступает."""
+
+    x: float
+    y: float
+    width: float
+    height: float
+
+
+@dataclass(frozen=True)
 class VenueSpec:
     name: str
     address: str
@@ -93,6 +119,7 @@ class VenueSpec:
     stage_path: str
     categories: list[CategorySpec]
     sections: list[SectionSpec]
+    boxes: list[BoxSpec] = field(default_factory=list)
 
     @property
     def seat_count(self) -> int:
@@ -109,7 +136,9 @@ CATEGORIES = [
     CategorySpec(4, "Нижний ярус", "#7048e8"),
     CategorySpec(5, "Средний ярус", "#1c7ed6"),
     CategorySpec(6, "Верхний ярус", "#0ca678"),
+    CategorySpec(7, "Лаунж", "#e64980"),
 ]
+VIP, LOWER, MIDDLE, UPPER, LOUNGE = 1, 4, 5, 6, 7
 
 
 def _fmt(value: float) -> str:
@@ -199,23 +228,19 @@ class _Tier:
     rows: int
     category_id: int
 
-    @property
-    def last_offset(self) -> float:
-        return self.first_offset + (self.rows - 1) * ROW_STEP
-
 
 TIERS = [
-    _Tier(1, 30.0, 10, 4),
-    _Tier(2, 210.0, 7, 5),
-    _Tier(3, 352.0, 7, 6),
+    _Tier(1, 30.0, 10, LOWER),
+    _Tier(2, 262.0, 7, MIDDLE),
+    _Tier(3, 426.0, 7, UPPER),
 ]
 
+# Премиальное кольцо между нижним и средним ярусами: отступ первого ряда и число рядов
+PREMIUM_OFFSET, PREMIUM_ROWS = 210.0, 2
+LONG_SIDES = ("top", "bottom", "top_ext", "bottom_ext")  # здесь кольцо — VIP, на торцах — лаунж
 
-def _category(tier: _Tier, segment: str, start: float) -> int:
-    # Центр длинных сторон нижнего яруса — лучший вид и на лёд, и на сцену.
-    if tier.number == 1 and segment in ("top", "bottom") and start in (0.25, 0.5):
-        return 1
-    return tier.category_id
+# Ряд лож между средним и верхним ярусами (отступы от борта) и размер одной ложи
+BOX_INNER, BOX_OUTER, BOX_WIDTH, BOX_GAP = 384.0, 406.0, 46.0, 6.0
 
 
 def _trimmed(segment: _Segment, d: float, start: float, end: float, margin: float):
@@ -224,8 +249,8 @@ def _trimmed(segment: _Segment, d: float, start: float, end: float, margin: floa
 
 
 def _section_path(segment: _Segment, start: float, end: float, d_in: float, d_out: float) -> str:
-    t1, t2 = _trimmed(segment, d_in, start, end, HALF_AISLE - 3)
-    u1, u2 = _trimmed(segment, d_out, start, end, HALF_AISLE - 3)
+    t1, t2 = _trimmed(segment, d_in, start, end, OUTLINE_INSET)
+    u1, u2 = _trimmed(segment, d_out, start, end, OUTLINE_INSET)
     a, b = segment.point(d_in, t1), segment.point(d_in, t2)
     c, e = segment.point(d_out, u2), segment.point(d_out, u1)
     if segment.kind == "straight":
@@ -242,35 +267,81 @@ def _section_path(segment: _Segment, start: float, end: float, d_in: float, d_ou
     )
 
 
-def _bowl_section(tier: _Tier, index: int, plan) -> SectionSpec:
+def _row_seats(segment: _Segment, d: float, start: float, end: float) -> list[tuple[float, float]]:
+    """Места ряда — от края до края сектора, шаг не меньше SEAT_PITCH.
+
+    Сколько мест помещается с шагом SEAT_PITCH, столько и ставим, а шаг растягиваем так,
+    чтобы крайние места легли ровно на границы: в прямом секторе все ряды одинаковы (ровная
+    сетка), в веерном на углу ряды — дуги одинаковой «плотности», а края — ровные радиальные
+    линии.
+    """
+    length = segment.row_length(d)
+    span = (end - start) * length - 2 * HALF_AISLE
+    count = max(1, int(span // SEAT_PITCH) + 1)
+    if count == 1:
+        return [segment.point(d, (start + end) / 2)]
+    first = start + HALF_AISLE / length
+    step = span / (count - 1) / length
+    return [segment.point(d, first + i * step) for i in range(count)]
+
+
+def _seated_section(
+    plan, first_offset: float, rows: int, category: int, code: str, name: str
+) -> SectionSpec:
     segment_name, start, end, configs = plan
     segment = SEGMENTS[segment_name]
-    category = _category(tier, segment_name, start)
-
     seats: list[SeatSpec] = []
-    for row in range(1, tier.rows + 1):
-        d = tier.first_offset + (row - 1) * ROW_STEP
-        length = segment.row_length(d)
-        span = (end - start) * length - 2 * HALF_AISLE
-        count = int(span // SEAT_PITCH) + 1
-        first = (start + end) / 2 - (count - 1) * SEAT_PITCH / length / 2
-        for number in range(1, count + 1):
-            x, y = segment.point(d, first + (number - 1) * SEAT_PITCH / length)
+    for row in range(1, rows + 1):
+        d = first_offset + (row - 1) * ROW_STEP
+        for number, (x, y) in enumerate(_row_seats(segment, d, start, end), start=1):
             seats.append(SeatSpec(str(row), number, round(x, 1), round(y, 1), category))
-
-    d_in, d_out = tier.first_offset - PAD, tier.last_offset + PAD
-    # Подписи нижнего и среднего ярусов — в проходе к следующему ярусу, верхнего — снаружи.
-    label_x, label_y = segment.point(d_out + 14, (start + end) / 2)
-    code = f"{tier.number}{index:02d}"
+    d_in, d_out = first_offset - PAD, first_offset + (rows - 1) * ROW_STEP + PAD
+    # Подпись — в проходе за сектором (у верхнего яруса — снаружи арены).
+    label_x, label_y = segment.point(d_out + 11, (start + end) / 2)
     return SectionSpec(
         code=code,
-        name=f"Сектор {code}",
+        name=name,
         path=_section_path(segment, start, end, d_in, d_out),
         label_x=round(label_x, 1),
         label_y=round(label_y, 1),
         configs=configs,
         seats=seats,
     )
+
+
+def _bowl() -> list[SectionSpec]:
+    sections = []
+    for tier in TIERS:
+        for index, plan in enumerate(SECTION_PLAN, start=1):
+            code = f"{tier.number}{index:02d}"
+            sections.append(
+                _seated_section(
+                    plan, tier.first_offset, tier.rows, tier.category_id, code, f"Сектор {code}"
+                )
+            )
+    vip = lounge = 0
+    for plan in SECTION_PLAN:
+        if plan[0] in LONG_SIDES:
+            vip += 1
+            code, name, category = f"V{vip:02d}", f"VIP-сектор V{vip:02d}", VIP
+        else:
+            lounge += 1
+            code, name, category = f"L{lounge:02d}", f"Лаунж L{lounge:02d}", LOUNGE
+        sections.append(_seated_section(plan, PREMIUM_OFFSET, PREMIUM_ROWS, category, code, name))
+    return sections
+
+
+def _boxes() -> list[BoxSpec]:
+    """Ложи вдоль длинных сторон над средним ярусом (по центру прямого участка)."""
+    count = int((2 * _SA + BOX_GAP) // (BOX_WIDTH + BOX_GAP))
+    used = count * BOX_WIDTH + (count - 1) * BOX_GAP
+    height = BOX_OUTER - BOX_INNER
+    boxes = []
+    for i in range(count):
+        x = round(CX - used / 2 + i * (BOX_WIDTH + BOX_GAP), 1)
+        boxes.append(BoxSpec(x, CY - RINK_B - BOX_OUTER, BOX_WIDTH, height))
+        boxes.append(BoxSpec(x, CY + RINK_B + BOX_INNER, BOX_WIDTH, height))
+    return boxes
 
 
 # --- Концертная конфигурация: сцена и стоячие зоны на льду -----------------------------
@@ -323,11 +394,6 @@ def _floor_sections() -> list[SectionSpec]:
 
 
 def build_arena() -> VenueSpec:
-    bowl = [
-        _bowl_section(tier, index, plan)
-        for tier in TIERS
-        for index, plan in enumerate(SECTION_PLAN, start=1)
-    ]
     return VenueSpec(
         name="Арена «Северная»",
         address="г. Москва, Ленинградский пр-т (учебный адрес)",
@@ -336,5 +402,6 @@ def build_arena() -> VenueSpec:
         rink=RinkSpec(CX - RINK_A, CY - RINK_B, 2 * RINK_A, 2 * RINK_B, RINK_R),
         stage_path=_stage_path(),
         categories=CATEGORIES,
-        sections=_floor_sections() + bowl,
+        sections=_floor_sections() + _bowl(),
+        boxes=_boxes(),
     )

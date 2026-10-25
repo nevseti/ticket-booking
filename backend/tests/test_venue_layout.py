@@ -1,5 +1,6 @@
 import math
 from collections import Counter
+from itertools import pairwise
 
 from app.modules.catalog.venue_layout import SEAT_PITCH, HallConfig, SectionKind, build_arena
 
@@ -60,7 +61,34 @@ def test_categories_per_config() -> None:
     def categories(config: HallConfig) -> set[int]:
         return {seat.category_id for s in venue.sections if config in s.configs for seat in s.seats}
 
-    assert categories(HallConfig.HOCKEY) == {1, 4, 5, 6}
-    assert categories(HallConfig.STAGE) == {1, 2, 3, 4, 5, 6}
+    assert categories(HallConfig.HOCKEY) == {1, 4, 5, 6, 7}
+    assert categories(HallConfig.STAGE) == {1, 2, 3, 4, 5, 6, 7}
     tiers = Counter(s.code[0] for s in venue.sections if s.kind == SectionKind.SEATED)
-    assert tiers == {"1": 20, "2": 20, "3": 20}
+    # 20 секторов в каждом ярусе; премиальное кольцо — VIP на длинных сторонах, лаунж на торцах
+    assert tiers == {"1": 20, "2": 20, "3": 20, "V": 10, "L": 10}
+
+
+def test_premium_ring_and_boxes() -> None:
+    venue = build_arena()
+    vip = [s for s in venue.sections if s.code.startswith("V")]
+    lounge = [s for s in venue.sections if s.code.startswith("L")]
+
+    assert {seat.category_id for s in vip for seat in s.seats} == {1}
+    assert {seat.category_id for s in lounge for seat in s.seats} == {7}
+    assert all({seat.row for seat in s.seats} == {"1", "2"} for s in vip + lounge)
+    assert venue.boxes and all(0 < b.y < venue.height for b in venue.boxes)
+
+
+def test_rows_span_the_whole_section() -> None:
+    """Ровные края: крайние места каждого ряда на одном расстоянии от границ сектора."""
+    from app.modules.catalog.venue_layout import SEAT_PITCH as pitch
+
+    venue = build_arena()
+    section = next(s for s in venue.sections if s.code == "106")  # веерный угловой сектор
+    rows: dict[str, list] = {}
+    for seat in section.seats:
+        rows.setdefault(seat.row, []).append(seat)
+    for seats in rows.values():
+        gaps = [((a.x - b.x) ** 2 + (a.y - b.y) ** 2) ** 0.5 for a, b in pairwise(seats)]
+        assert max(gaps) - min(gaps) < 0.5  # внутри ряда шаг одинаковый
+        assert min(gaps) >= pitch - 0.2

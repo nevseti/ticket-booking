@@ -135,7 +135,8 @@ class BookingService:
         zone = await catalog.get_section(self._uow, section_id)
         if zone is None or zone.kind != catalog.SectionKind.STANDING:
             raise ZoneNotFoundError()
-        if event.hall_config not in zone.configs:
+        zone_seat = (await catalog.get_seats(self._uow, [next(iter(zone.seat_ids))])).values()
+        if not all(event.sells(seat) for seat in zone_seat):
             raise SeatNotForSaleError()
 
         # Порядок блокировок всегда один (пользователь → зона), поэтому они не взаимоблокируются.

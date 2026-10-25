@@ -31,9 +31,10 @@ STAGE_PRICES = [
         (4, 700_000),
         (5, 450_000),
         (6, 250_000),
+        (7, 1_100_000),  # лаунж
     ]
 ]
-HOCKEY_PRICES = [p for p in STAGE_PRICES if p["category_id"] in (1, 4, 5, 6)]
+HOCKEY_PRICES = [p for p in STAGE_PRICES if p["category_id"] in (1, 4, 5, 6, 7)]
 
 
 def auth() -> dict[str, str]:

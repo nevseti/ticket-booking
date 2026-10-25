@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.errors import AppError
 from app.modules.catalog.repository import VenueRepository
 from app.modules.catalog.schemas import (
+    BoxOut,
     CategoryOut,
     HallConfigOut,
     RinkOut,
@@ -107,6 +108,7 @@ async def _load(session: AsyncSession) -> ReferenceData:
             radius=venue.rink_radius,
         ),
         stage_path=venue.stage_path,
+        boxes=[BoxOut(**box) for box in venue.boxes],
         categories=categories,
         hall_configs=[
             HallConfigOut(

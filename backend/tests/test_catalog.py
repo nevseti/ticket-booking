@@ -18,9 +18,10 @@ STAGE_PRICES = [
     {"category_id": 4, "price_kopecks": 700_000},
     {"category_id": 5, "price_kopecks": 450_000},
     {"category_id": 6, "price_kopecks": 250_000},
+    {"category_id": 7, "price_kopecks": 1_100_000},
 ]
 # Хоккей: партера на льду нет — только VIP и ярусы.
-HOCKEY_PRICES = [p for p in STAGE_PRICES if p["category_id"] in (1, 4, 5, 6)]
+HOCKEY_PRICES = [p for p in STAGE_PRICES if p["category_id"] in (1, 4, 5, 6, 7)]
 STAGE_CATEGORY_NAMES = [
     "VIP",
     "Фан-зона",
@@ -28,6 +29,7 @@ STAGE_CATEGORY_NAMES = [
     "Нижний ярус",
     "Средний ярус",
     "Верхний ярус",
+    "Лаунж",
 ]
 
 
@@ -74,8 +76,8 @@ async def test_layout_matches_generator_and_supports_etag(client: AsyncClient) -
     assert [c["name"] for c in layout["categories"]] == STAGE_CATEGORY_NAMES
     configs = {c["id"]: c for c in layout["hall_configs"]}
     assert configs["hockey"]["capacity"] == spec.capacity(HallConfig.HOCKEY)
-    assert configs["hockey"]["category_ids"] == [1, 4, 5, 6]
-    assert configs["stage"]["category_ids"] == [1, 2, 3, 4, 5, 6]
+    assert configs["hockey"]["category_ids"] == [1, 4, 5, 6, 7]
+    assert configs["stage"]["category_ids"] == [1, 2, 3, 4, 5, 6, 7]
     standing = [s for s in layout["sections"] if s["kind"] == "standing"]
     assert {s["name"]: s["capacity"] for s in standing} == {"Фан-зона": 500, "Танцпол": 1500}
     assert "max-age" in resp.headers["cache-control"]
@@ -125,7 +127,7 @@ async def test_publish_requires_all_prices(
 
     assert resp.status_code == 409
     assert resp.json()["code"] == "PRICES_INCOMPLETE"
-    assert resp.json()["missing_category_ids"] == [3, 4, 5, 6]
+    assert resp.json()["missing_category_ids"] == [3, 4, 5, 6, 7]
 
 
 async def test_hockey_uses_hockey_categories(
@@ -139,6 +141,7 @@ async def test_hockey_uses_hockey_categories(
         "Нижний ярус",
         "Средний ярус",
         "Верхний ярус",
+        "Лаунж",
     ]
     # Цена на фан-зону и танцпол для хоккея бессмысленна: партера на льду нет.
     resp = await client.post(
@@ -314,3 +317,55 @@ async def test_facade(client: AsyncClient, admin_headers: dict[str, str]) -> Non
     assert hockey_info.sells(seats[west_end["id"]])
     assert concert_info.sells(seats[side["id"]]) and hockey_info.sells(seats[side["id"]])
     assert missing is None
+
+
+async def test_relayout_moves_sold_seats_to_same_address() -> None:
+    """Перестройка зала (новая версия схемы) переносит проданное место на место с тем же
+    адресом «сектор, ряд, номер» и добавляет цену новой категории мероприятиям."""
+    import uuid
+
+    from sqlalchemy import text
+
+    from app.core.db import UnitOfWork
+    from app.modules.catalog.seed import seed_venue
+
+    async with UnitOfWork() as uow:
+        seat_id, code, row, number = (
+            await uow.session.execute(
+                text("""
+                    SELECT s.id, sec.code, s.row, s.number FROM catalog.seats s
+                    JOIN catalog.sections sec ON sec.id = s.section_id
+                    WHERE sec.code = '104' AND s.row = '3' AND s.number = 5
+                """)
+            )
+        ).one()
+        event_id = uuid.uuid4()
+        await uow.session.execute(
+            text("INSERT INTO booking.sold_seats VALUES (:e, :s, :o)"),
+            {"e": event_id, "s": seat_id, "o": uuid.uuid4()},
+        )
+        # Схема «устарела»: seed-venue должен её перестроить.
+        await uow.session.execute(text("UPDATE catalog.venues SET layout_version = 1"))
+        await uow.commit()
+
+    async with UnitOfWork() as uow:
+        created = await seed_venue(uow.session)
+        await uow.commit()
+
+    async with UnitOfWork() as uow:
+        moved_to = await uow.session.scalar(
+            text("SELECT seat_id FROM booking.sold_seats WHERE event_id = :e"), {"e": event_id}
+        )
+        address = (
+            await uow.session.execute(
+                text("""
+                    SELECT sec.code, s.row, s.number FROM catalog.seats s
+                    JOIN catalog.sections sec ON sec.id = s.section_id WHERE s.id = :id
+                """),
+                {"id": moved_to},
+            )
+        ).one()
+        version = await uow.session.scalar(text("SELECT layout_version FROM catalog.venues"))
+    assert created > 0 and moved_to != seat_id
+    assert tuple(address) == (code, row, number)
+    assert version >= 2

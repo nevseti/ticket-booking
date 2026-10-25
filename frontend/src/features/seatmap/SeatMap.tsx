@@ -1,7 +1,7 @@
 import { ActionIcon, Group } from '@mantine/core'
 import { IconFocusCentered, IconMinus, IconPlus } from '@tabler/icons-react'
-import { memo, useCallback, useMemo, useRef, useState } from 'react'
-import type { MouseEvent, PointerEvent } from 'react'
+import { memo, useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import type { MouseEvent, PointerEvent, ReactNode } from 'react'
 import { TransformComponent, TransformWrapper } from 'react-zoom-pan-pinch'
 
 import type {
@@ -38,9 +38,55 @@ function seatState(status: SeatStatus | undefined, seatId: number): SeatState {
   return 'free'
 }
 
+/** Куда показывать подсказку: центр по горизонтали и верх/низ объекта (координаты обёртки). */
+interface Anchor {
+  x: number
+  top: number
+  bottom: number
+}
+
 type Hovered =
-  | { type: 'seat'; seat: SeatOut; left: number; top: number }
-  | { type: 'zone'; section: SectionOut; left: number; top: number }
+  | { type: 'seat'; seat: SeatOut; anchor: Anchor }
+  | { type: 'zone'; section: SectionOut; anchor: Anchor }
+  | { type: 'box'; anchor: Anchor }
+
+const TOOLTIP_GAP = 10
+const TOOLTIP_EDGE = 8
+
+/**
+ * Подсказка над объектом, которая не выходит за края схемы: у верхнего края открывается
+ * под объектом, по горизонтали прижимается к краям. Размер узнаём после отрисовки.
+ */
+function Tooltip({ anchor, children }: { anchor: Anchor; children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [position, setPosition] = useState<{ left: number; top: number } | null>(null)
+
+  useLayoutEffect(() => {
+    const element = ref.current
+    const parent = element?.offsetParent as HTMLElement | null
+    if (!element || !parent) return
+    const { offsetWidth: width, offsetHeight: height } = element
+    let top = anchor.top - height - TOOLTIP_GAP
+    if (top < TOOLTIP_EDGE) {
+      top = Math.min(anchor.bottom + TOOLTIP_GAP, parent.clientHeight - height - TOOLTIP_EDGE)
+    }
+    const left = Math.min(
+      Math.max(anchor.x - width / 2, TOOLTIP_EDGE),
+      parent.clientWidth - width - TOOLTIP_EDGE,
+    )
+    setPosition({ left, top })
+  }, [anchor.x, anchor.top, anchor.bottom])
+
+  return (
+    <div
+      ref={ref}
+      className={classes.tooltip}
+      style={position ?? { left: 0, top: 0, visibility: 'hidden' }}
+    >
+      {children}
+    </div>
+  )
+}
 
 /** Хоккейная разметка в пропорциях площадки 60×30 м (как у КХЛ/НХЛ). */
 function IceRink({ rink }: { rink: RinkOut }) {
@@ -142,6 +188,19 @@ const SeatLayer = memo(function SeatLayer({
         </>
       )}
 
+      {layout.boxes.map((box) => (
+        <rect
+          key={`${box.x}-${box.y}`}
+          x={box.x}
+          y={box.y}
+          width={box.width}
+          height={box.height}
+          rx={4}
+          data-box
+          className={classes.box}
+        />
+      ))}
+
       {sections.map((section) =>
         section.kind === 'standing' ? (
           <g key={section.id}>
@@ -223,27 +282,27 @@ export function SeatMap({
       const zoneId = target.getAttribute('data-section-id')
       const seat = seatId ? seatsById.get(Number(seatId)) : undefined
       const zone = zoneId ? sectionsById.get(Number(zoneId)) : undefined
-      if (!wrapper || (!seat && !zone)) {
+      const isBox = target.hasAttribute('data-box')
+      if (!wrapper || (!seat && !zone && !isBox)) {
         setHovered(null)
         return
       }
-      const box = wrapper.getBoundingClientRect()
+      const frame = wrapper.getBoundingClientRect()
       if (seat) {
         const seatBox = target.getBoundingClientRect()
-        setHovered({
-          type: 'seat',
-          seat,
-          left: seatBox.left + seatBox.width / 2 - box.left,
-          top: seatBox.top - box.top,
-        })
-      } else if (zone) {
-        setHovered({
-          type: 'zone',
-          section: zone,
-          left: e.clientX - box.left,
-          top: e.clientY - box.top,
-        })
+        const anchor = {
+          x: seatBox.left + seatBox.width / 2 - frame.left,
+          top: seatBox.top - frame.top,
+          bottom: seatBox.bottom - frame.top,
+        }
+        setHovered({ type: 'seat', seat, anchor })
+        return
       }
+      const y = e.clientY - frame.top
+      const pointer = { x: e.clientX - frame.left, top: y, bottom: y }
+      setHovered(
+        zone ? { type: 'zone', section: zone, anchor: pointer } : { type: 'box', anchor: pointer },
+      )
     },
     [seatsById, sectionsById],
   )
@@ -269,7 +328,11 @@ export function SeatMap({
 
   const hoveredState = hovered?.type === 'seat' ? seatState(status, hovered.seat.id) : undefined
   const categoryId =
-    hovered?.type === 'seat' ? hovered.seat.category_id : hovered?.section.category_id
+    hovered?.type === 'seat'
+      ? hovered.seat.category_id
+      : hovered?.type === 'zone'
+        ? hovered.section.category_id
+        : undefined
   const hoveredPrice = categoryId != null ? prices?.get(categoryId) : undefined
   const categoryName = categoryId != null ? categoriesById.get(categoryId)?.name : undefined
 
@@ -321,8 +384,16 @@ export function SeatMap({
         )}
       </TransformWrapper>
 
-      {hovered && (
-        <div className={classes.tooltip} style={{ left: hovered.left, top: hovered.top }}>
+      {hovered?.type === 'box' && (
+        <Tooltip anchor={hovered.anchor}>
+          <div>
+            <b>Корпоративные ложи</b>
+          </div>
+          <div className={classes.tooltipMuted}>В продажу не поступают</div>
+        </Tooltip>
+      )}
+      {hovered && hovered.type !== 'box' && (
+        <Tooltip anchor={hovered.anchor}>
           {hovered.type === 'seat' ? (
             <>
               <div>
@@ -351,7 +422,7 @@ export function SeatMap({
             {categoryName}
             {hoveredPrice != null && ` · ${formatPrice(hoveredPrice)}`}
           </div>
-        </div>
+        </Tooltip>
       )}
     </div>
   )

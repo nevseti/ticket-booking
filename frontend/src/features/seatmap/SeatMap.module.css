@@ -108,6 +108,13 @@
   stroke-width: 1.5;
 }
 
+/* Корпоративные ложи: часть схемы, но не продаются */
+.box {
+  fill: light-dark(var(--mantine-color-gray-2), var(--mantine-color-dark-6));
+  stroke: light-dark(var(--mantine-color-gray-4), var(--mantine-color-dark-4));
+  stroke-width: 1;
+}
+
 .sectionLabel {
   fill: var(--mantine-color-dimmed);
   font-size: 13px;
@@ -173,9 +180,10 @@
   color: var(--mantine-color-teal-4);
 }
 
+/* Поверх кнопок масштаба (z-index 3): у верхнего края подсказка не прячется под ними */
 .tooltip {
   position: absolute;
-  z-index: 2;
+  z-index: 4;
   pointer-events: none;
   padding: 6px 10px;
   border-radius: var(--mantine-radius-sm);
@@ -183,7 +191,6 @@
   color: light-dark(var(--mantine-color-white), var(--mantine-color-dark-9));
   font-size: var(--mantine-font-size-xs);
   white-space: nowrap;
-  transform: translate(-50%, calc(-100% - 12px));
   box-shadow: var(--mantine-shadow-md);
 }
 

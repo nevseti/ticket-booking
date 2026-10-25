@@ -12,9 +12,10 @@ from app.modules.catalog.reference import SeatRef, SectionRef, get_reference
 from app.modules.catalog.repository import EventRepository
 from app.modules.catalog.schemas import SaleStatus
 from app.modules.catalog.service import hall_config_for, now_utc, sale_status
-from app.modules.catalog.venue_layout import HallConfig, SectionKind
+from app.modules.catalog.venue_layout import LAYOUT_VERSION, HallConfig, SectionKind
 
 __all__ = [
+    "LAYOUT_VERSION",
     "EventInfo",
     "HallConfig",
     "SaleStatus",
@@ -40,14 +41,16 @@ class EventInfo:
     starts_at: datetime
     sale_status: SaleStatus
     hall_config: HallConfig
+    priced_categories: frozenset[int]  # категории, у которых есть цена
 
     @property
     def on_sale(self) -> bool:
         return self.sale_status == SaleStatus.ON_SALE
 
     def sells(self, seat: SeatRef) -> bool:
-        """Продаётся ли место на это мероприятие (зависит от режима зала)."""
-        return self.hall_config in seat.configs
+        """Продаётся ли место на это мероприятие: сектор есть в режиме зала и у категории
+        места есть цена (без цены место ушло бы бесплатно)."""
+        return self.hall_config in seat.configs and seat.category_id in self.priced_categories
 
 
 async def get_event(uow: UnitOfWork, event_id: uuid.UUID) -> EventInfo | None:
@@ -60,6 +63,7 @@ async def get_event(uow: UnitOfWork, event_id: uuid.UUID) -> EventInfo | None:
         starts_at=event.starts_at,
         sale_status=sale_status(event, now_utc()),
         hall_config=hall_config_for(event.kind),
+        priced_categories=frozenset(p.price_category_id for p in event.prices),
     )
 
 
