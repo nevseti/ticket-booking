@@ -4,6 +4,7 @@
     python -m app.modules.catalog.cli seed-demo    # демо-мероприятия, если их ещё нет
     python -m app.modules.catalog.cli seed-demo --reset   # удалить ВСЕ мероприятия и засеять заново
     python -m app.modules.catalog.cli apply-posters       # фото демо-мероприятиям по названию
+    python -m app.modules.catalog.cli refresh-demo-dates  # даты демо от сегодня (перед показом)
 
 seed-venue выполняется автоматически при каждом деплое (сервис migrate).
 """
@@ -12,7 +13,12 @@ import argparse
 import asyncio
 
 from app.core.db import UnitOfWork, engine
-from app.modules.catalog.seed import apply_demo_posters, seed_demo_events, seed_venue
+from app.modules.catalog.seed import (
+    apply_demo_posters,
+    refresh_demo_dates,
+    seed_demo_events,
+    seed_venue,
+)
 from app.modules.catalog.service import now_utc
 
 
@@ -20,7 +26,10 @@ async def _run(command: str, reset: bool) -> str:
     async with UnitOfWork() as uow:
         if command == "seed-venue":
             created = await seed_venue(uow.session)
-            result = f"Создана площадка: {created} мест" if created else "Площадка уже существует"
+            result = f"Схема зала построена: {created} мест" if created else "Схема зала актуальна"
+        elif command == "refresh-demo-dates":
+            updated = await refresh_demo_dates(uow.session, now_utc())
+            result = f"Даты обновлены у мероприятий: {updated}"
         elif command == "apply-posters":
             updated = await apply_demo_posters(uow.session)
             result = f"Фото проставлены мероприятиям: {updated}"
@@ -34,7 +43,9 @@ async def _run(command: str, reset: bool) -> str:
 
 def main() -> None:
     parser = argparse.ArgumentParser(prog="catalog-cli")
-    parser.add_argument("command", choices=["seed-venue", "seed-demo", "apply-posters"])
+    parser.add_argument(
+        "command", choices=["seed-venue", "seed-demo", "apply-posters", "refresh-demo-dates"]
+    )
     parser.add_argument(
         "--reset", action="store_true", help="seed-demo: удалить все мероприятия перед засевом"
     )

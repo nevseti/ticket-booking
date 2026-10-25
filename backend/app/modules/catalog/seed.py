@@ -445,20 +445,44 @@ DEMO_POSTERS: dict[str, tuple[str, str, str]] = {
 }
 
 
+def _demo_dates(demo: DemoEvent, now: datetime) -> tuple[datetime, datetime]:
+    """Начало мероприятия и старт продаж — относительно «сегодня»."""
+    today = now.astimezone(MSK)
+    starts_at = _at(today + timedelta(days=demo.in_days), demo.hour)
+    sales_start = (
+        now - timedelta(days=1)
+        if demo.sales_in_days == 0
+        else _at(today + timedelta(days=demo.sales_in_days), 12)
+    )
+    return starts_at, sales_start
+
+
+async def refresh_demo_dates(session: AsyncSession, now: datetime) -> int:
+    """Сдвинуть даты демо-мероприятий от сегодняшнего дня, как при засеве.
+
+    Нужно перед показом: даты считались от дня засева и со временем уходят в прошлое.
+    В отличие от seed-demo --reset ничего не удаляет — заказы и билеты остаются.
+    """
+    updated = 0
+    for demo in DEMO_EVENTS:
+        starts_at, sales_start = _demo_dates(demo, now)
+        result = await session.execute(
+            update(Event)
+            .where(Event.title == demo.title, Event.status != EventStatus.CANCELLED)
+            .values(starts_at=starts_at, sales_start_at=sales_start, sales_end_at=starts_at)
+        )
+        updated += result.rowcount or 0
+    return updated
+
+
 async def seed_demo_events(session: AsyncSession, now: datetime, *, reset: bool = False) -> int:
     """Опубликованные демо-мероприятия. Без reset — только если мероприятий ещё нет."""
     if reset:
         await session.execute(delete(Event))
     elif await session.scalar(select(Event.id).limit(1)) is not None:
         return 0
-    today = now.astimezone(MSK)
     for demo in DEMO_EVENTS:
-        starts_at = _at(today + timedelta(days=demo.in_days), demo.hour)
-        sales_start = (
-            now - timedelta(days=1)
-            if demo.sales_in_days == 0
-            else _at(today + timedelta(days=demo.sales_in_days), 12)
-        )
+        starts_at, sales_start = _demo_dates(demo, now)
         session.add(
             Event(
                 title=demo.title,

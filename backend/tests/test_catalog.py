@@ -369,3 +369,28 @@ async def test_relayout_moves_sold_seats_to_same_address() -> None:
     assert created > 0 and moved_to != seat_id
     assert tuple(address) == (code, row, number)
     assert version >= 2
+
+
+async def test_refresh_demo_dates_moves_events_forward_without_deleting() -> None:
+    from datetime import UTC, datetime, timedelta
+
+    from sqlalchemy import func, select
+
+    from app.core.db import UnitOfWork
+    from app.modules.catalog.models import Event
+    from app.modules.catalog.seed import refresh_demo_dates, seed_demo_events
+
+    long_ago = datetime.now(UTC) - timedelta(days=200)
+    async with UnitOfWork() as uow:
+        await seed_demo_events(uow.session, long_ago)
+        await uow.commit()
+    async with UnitOfWork() as uow:
+        ids_before = set(await uow.session.scalars(select(Event.id)))
+        updated = await refresh_demo_dates(uow.session, datetime.now(UTC))
+        await uow.commit()
+    async with UnitOfWork() as uow:
+        ids_after = set(await uow.session.scalars(select(Event.id)))
+        earliest = await uow.session.scalar(select(func.min(Event.starts_at)))
+
+    assert updated == len(ids_before) and ids_after == ids_before
+    assert earliest > datetime.now(UTC)
